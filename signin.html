@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in | OHS Hub</title>
+<meta name="description" content="Sign in to your OHS Hub workspace.">
+
+<link rel="canonical" href="https://ihubsa.github.io/ohs-hub/signin.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OHS Hub">
+<meta property="og:title" content="Sign in | OHS Hub">
+<meta property="og:description" content="Sign in to your OHS Hub workspace.">
+<meta property="og:url" content="https://ihubsa.github.io/ohs-hub/signin.html">
+<meta property="og:image" content="https://ihubsa.github.io/ohs-hub/assets/img/og-image.png">
+<meta property="og:locale" content="en_ZA">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#13263F">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/site.css">
+
+</head>
+<body data-page="signin">
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="OHS Hub home"><svg viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="6" fill="#13263F"/><path d="M17 6.5 28.5 26.5H5.5Z" fill="#F2B705" stroke="#F2B705" stroke-width="2.4" stroke-linejoin="round"/><path d="m12.2 19.6 3.3 3.3 6.4-6.8" fill="none" stroke="#13263F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>OHS Hub</span></a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav class="nav" id="site-nav" aria-label="Main">
+      <a href="index.html">Home</a><a href="features.html">Features</a><a href="industries.html">Industries</a><a href="index.html#how-it-works">How It Works</a><a href="pricing.html">Pricing</a><a href="resources.html">Resources</a><a href="contact.html">Contact</a>
+      <a class="nav-signin" href="signin.html" aria-current="page">Sign In</a>
+      <a class="btn btn-primary" href="register.html">Start Free Trial</a>
+    </nav>
+  </div>
+</header>
+<main id="main">
+<div class="auth"><div class="auth-side">
+  <h2>One place for your OHS system</h2>
+  <ul><li>Risk assessments scored by your own matrix</li><li>Inspections and incident reports from a phone</li>
+  <li>AI first drafts, approved by your competent person</li><li>Each company's data kept separate and secure</li></ul>
+</div>
+<div class="auth-main"><div class="auth-box">
+  <h1>Sign in</h1>
+  <div id="auth-status" class="alert" role="status" hidden></div>
+  <form id="signin-form" class="form" data-auth novalidate style="margin-top:16px">
+    <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required><p class="error"></p></div>
+    <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required><p class="error"></p></div>
+    <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+  </form>
+  <details style="margin-top:22px"><summary style="cursor:pointer;font-weight:600">Forgot your password?</summary>
+    <form id="forgot-form" class="form" data-auth novalidate style="margin-top:14px">
+      <div class="field"><label for="forgot-email">Email</label><input id="forgot-email" name="email" type="email" autocomplete="email" required><p class="error"></p></div>
+      <button class="btn btn-secondary btn-block" type="submit">Send reset link</button>
+    </form></details>
+  <div class="auth-links"><span>New to OHS Hub? <a href="register.html">Start a free trial</a></span></div>
+</div></div></div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <a class="brand" href="index.html" aria-label="OHS Hub home"><svg viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="6" fill="#13263F"/><path d="M17 6.5 28.5 26.5H5.5Z" fill="#F2B705" stroke="#F2B705" stroke-width="2.4" stroke-linejoin="round"/><path d="m12.2 19.6 3.3 3.3 6.4-6.8" fill="none" stroke="#13263F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>OHS Hub</span></a>
+        <p>Occupational health and safety management for South African workplaces.</p>
+        <p class="small">A product of iHubSA, Fish Hoek, Western Cape.</p>
+      </div>
+      <div>
+        <h2>Product</h2>
+        <ul><li><a href="features.html">Features</a></li><li><a href="industries.html">Industries</a></li>
+        <li><a href="pricing.html">Pricing</a></li><li><a href="index.html#how-it-works">How it works</a></li></ul>
+      </div>
+      <div>
+        <h2>Company</h2>
+        <ul><li><a href="about.html">About us</a></li><li><a href="contact.html">Contact us</a></li>
+        <li><a href="resources.html">Resources</a></li><li><a href="faq.html">FAQ</a></li></ul>
+      </div>
+      <div>
+        <h2>Legal</h2>
+        <ul><li><a href="privacy.html">Privacy policy</a></li><li><a href="terms.html">Terms and conditions</a></li>
+        <li><a href="popia.html">POPIA and data protection</a></li></ul>
+      </div>
+    </div>
+    <div class="footer-base">
+      <span>© <span data-year>2026</span> iHubSA. All rights reserved.</span>
+      <span><a href="mailto:enquiries@ihub-sa.co.za">enquiries@ihub-sa.co.za</a></span>
+    </div>
+  </div>
+</footer>
+<script type="module" src="assets/js/site.js"></script><script type="module" src="assets/js/auth.js"></script>
+</body>
+</html>

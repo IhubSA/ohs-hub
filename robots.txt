@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /app/
+
+Sitemap: https://ihubsa.github.io/ohs-hub/sitemap.xml
