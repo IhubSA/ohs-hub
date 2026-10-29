@@ -91,11 +91,11 @@ async function project(client, table, rows, sel) {
 
 const jsonify = (v) => JSON.parse(JSON.stringify(v, (k, x) => (x instanceof Date ? x.toISOString() : x)));
 
-async function handle({ method, path, search, headers, body, sub }) {
+async function handle({ method, path, search, headers, body, sub, role }) {
   const client = await pool.connect();
   try {
     await client.query('begin');
-    await client.query(`set local role ${sub ? 'authenticated' : 'anon'}`);
+    await client.query(`set local role ${role === 'service_role' ? 'service_role' : sub ? 'authenticated' : 'anon'}`);
     await client.query(`select set_config('request.jwt.claim.sub', $1, true)`, [sub || '']);
     const params = [...new URLSearchParams(search).entries()];
     const accept = headers.accept || '';
@@ -106,7 +106,7 @@ async function handle({ method, path, search, headers, body, sub }) {
       const fn = path.slice(4); const args = body || {};
       const keys = Object.keys(args);
       const sql = `select public.${ident(fn)}(${keys.map((k, i) => `${ident(k)} => $${i + 1}`).join(', ')}) as r`;
-      const { rows } = await client.query(sql, keys.map((k) => args[k]));
+      const { rows } = await client.query(sql, keys.map((k) => Array.isArray(args[k]) && args[k].some((x) => x && typeof x === 'object') ? JSON.stringify(args[k]) : args[k]));
       out = { status: 200, body: rows[0]?.r ?? null };
     } else {
       const table = path; const t = `public.${ident(table)}`;

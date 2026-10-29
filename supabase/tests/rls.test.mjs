@@ -219,6 +219,41 @@ const act2 = (await as(D, `insert into corrective_actions(org_id,reference,sourc
 await as(C, `update corrective_actions set status='awaiting_verification' where id='${act2}'`);
 ok('verifiers notified', (await db.query(`select count(*)::int n from notifications where user_id='${D}' and event_type='action.awaiting_verification' and record_id='${act2}'`)).rows[0].n === 1);
 
+
+// ===== Stage 5: AI controls and reports (migration 12) =====
+const begin = (u, task='document') => db.query(`select public.ai_begin_job('${u}','${orgA}','${task}','sop',null,'{}') id`).then(r=>r.rows[0].id).catch(e=>'ERR:'+e.message);
+ok('AI off until platform switch', String(await begin(A)).includes('not been switched on'));
+await db.exec(`update platform_settings set value = jsonb_set(value,'{enabled}','true') where key='ai'`);
+ok('employee cannot use AI', String(await begin(C)).includes('Only administrators'));
+ok('outsider cannot use AI', String(await begin(B)).includes('not a member'));
+const job = await begin(D);
+ok('safety officer starts AI job', /^[0-9a-f-]{36}$/.test(job), job);
+await db.query(`select public.ai_finish_job('${job}', true, '{"sections":{}}', '{}', '[]', 'anthropic', 'claude-sonnet-5-5', 100, 200, null)`);
+const quota = (await as(C, `select public.ai_quota('${orgA}') q`))[0].q;
+ok('quota counts successful draft', quota.used === 1 && quota.limit === 100 && quota.enabled === true && quota.can_generate === false, JSON.stringify(quota));
+const job2 = await begin(D); await db.query(`select public.ai_finish_job('${job2}', false, null, null, null, 'anthropic', 'm', 0, 0, 'timeout')`);
+ok('failed draft not counted', (await as(A, `select public.ai_quota('${orgA}') q`))[0].q.used === 1);
+await db.exec(`update usage_counters set ai_generations = 100 where org_id='${orgA}'`);
+ok('monthly limit enforced', String(await begin(D)).includes('used all its AI drafts'));
+await db.exec(`update usage_counters set ai_generations = 1 where org_id='${orgA}'`);
+for (let i = 0; i < 4; i++) await begin(D);
+ok('per-user rate limit', String(await begin(D)).includes('Too many AI requests'));
+ok('client cannot call ai_begin_job', (await asErr(D, `select public.ai_begin_job('${D}','${orgA}','x','sop',null,'{}')`)) !== null);
+ok('client cannot call ai_finish_job', (await asErr(D, `select public.ai_finish_job('${job}', true, '{}', '{}', '[]', 'x', 'x', 1, 1, null)`)) !== null);
+ok('B cannot read A quota', (await asErr(B, `select public.ai_quota('${orgA}')`)) !== null);
+ok('AI job log readable by manager', (await as(A, `select count(*)::int n from ai_generation_jobs`))[0].n >= 2);
+ok('AI job log hidden from employee', (await as(C, `select count(*)::int n from ai_generation_jobs`))[0].n === 0);
+
+const rep = (await as(A, `select public.ohs_report('${orgA}', (current_date - 30), current_date) r`))[0].r;
+ok('report counts incidents', rep.incidents.total === 2 && rep.incidents.near_misses === 1 && rep.incidents.closed === 1, JSON.stringify(rep.incidents));
+ok('report counts inspections', rep.inspections.completed === 1 && rep.inspections.compliance_pct == 50, JSON.stringify(rep.inspections));
+ok('report counts actions', rep.actions.raised === 2 && rep.actions.overdue_at_end === 1 && rep.actions.awaiting_verification === 1, JSON.stringify(rep.actions));
+ok('report risk bands from methodology', Array.isArray(rep.risk.by_band) && rep.risk.by_band.length === 4);
+const repD = (await as(D, `select public.ohs_report('${orgA}', (current_date - 30), current_date) r`))[0].r;
+ok('report respects confidentiality', repD.incidents.total === 1, repD.incidents.total);
+ok('employee cannot run report', (await asErr(C, `select public.ohs_report('${orgA}', current_date - 30, current_date)`)) !== null);
+ok('other company cannot run report', (await asErr(B, `select public.ohs_report('${orgA}', current_date - 30, current_date)`)) !== null);
+
 // Organisation deletion (e.g. POPIA erasure) must cascade cleanly
 ok('organisation can be deleted', (await db.query(`delete from organisations where id='${orgA}'`).then(()=>null).catch(e=>e.message)) === null);
 ok('org records removed', (await db.query(`select count(*)::int n from incidents where org_id='${orgA}'`)).rows[0].n === 0);

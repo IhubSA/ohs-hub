@@ -30,5 +30,6 @@ for (const f of fs.readdirSync(dir).sort()) {
 await c.query(`grant select, insert, update, delete on all tables in schema public to authenticated;
   grant usage, select on all sequences in schema public to authenticated;
   grant select on public.subscription_plans to anon;
+  grant all on all tables in schema public to service_role; grant all on all sequences in schema public to service_role;
   grant select, insert, update, delete on storage.objects to authenticated;`);
 await c.end(); console.log('DB READY');

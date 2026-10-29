@@ -116,7 +116,13 @@ Platform administrators (iHubSA) manage plans, the legal library and platform se
    - **Risk assessments:** hazards are scored by the database, with the hierarchy of controls and independent approval. Approved assessments are locked until reopened.
    - **Risk register:** filters, search and CSV export.
    - **Document control:** a structured SOP editor (all the fields in spec 7.2) plus templates for method statements, toolbox talks, safety alerts, emergency plans and policies. Review and approval go through the database only, and the author can't approve their own document. The previous version stays effective while a revision is drafted. Also includes acknowledgements and printing.
-5. **AI and reporting:** `ai-generate` Edge Function, section regeneration, validation, monthly and quarterly reports, PDF/CSV export, AI summaries clearly labelled as such.
+5. **AI and reporting:** done (29 Oct 2026). Migration 12 and the `ai-generate` Edge Function add the items below. Migration 13 also stops signed-out visitors from calling any database function:
+   - **AI drafting** (Anthropic Claude Sonnet 5.5, server-side only) for SOPs, safe work procedures, method statements, toolbox talks, safety alerts, emergency plans and policies. Users can draft the whole document or rewrite one section. Every draft is labelled as AI-generated, and a review panel lists sections the AI didn't complete, missing information, uncertainties and any legislation mentioned in the text.
+   - **Legal references** suggested by the AI are marked **Verified** only when they match a verified entry in the legal register. Everything else is marked **Needs verification**.
+   - **Hazard suggestions** for risk assessments. The AI never sets ratings: the user chooses likelihood and severity and the database scores them. **Checklist question suggestions** for the checklist builder. **Investigation prompts** (questions, evidence and possible factors), which are saved as unconfirmed suggestions, never as established causes.
+   - **Controls in the database:** only admins, OHS managers and safety officers can use AI. A platform switch, the plan's AI feature and a monthly allowance apply, plus a limit of 6 requests a minute per person. Only successful drafts count towards the allowance, and every request is logged with its model and token use. Names of people involved in incidents aren't sent to the AI.
+   - **Reports:** monthly, quarterly, year-to-date or custom period, by site, calculated in the database from records the user may see. They cover incidents, inspections, corrective actions, risk and documents, with an optional AI executive summary written from the figures only. Reports export to print/PDF, Word and CSV, and can be saved as a controlled document.
+   - **Word export** for any document.
 6. **Additional modules:** legal register admin and verification workflow, training matrix, contractors, equipment and PPE, emergency preparedness, platform plan admin.
 7. **Testing and deployment:** end-to-end workflow tests, mobile checks, secret scan, final deployment guide.
 
@@ -135,9 +141,11 @@ Platform administrators (iHubSA) manage plans, the legal library and platform se
 
 ## 9. Known limitations (honest status)
 
-- AI drafting isn't switched on yet (Stage 5). Documents are written by hand for now.
-- PDF export uses the browser's print dialog ("Save as PDF"). A formatted PDF and Word export is planned for Stage 5.
+- AI drafting stays off until the Anthropic key is added as a Supabase secret and the platform AI switch is turned on. Until then the screens explain that AI isn't switched on.
+- The AI was tested against a stand-in for the Anthropic API that returns fixed answers. The quality of real drafts must be checked once the key is added.
+- PDF export uses the browser's print dialog ("Save as PDF"). Word export is a Word-compatible `.doc` file, not a native `.docx`.
+- The legal register is empty apart from the two Acts, so until requirements are loaded and verified, every AI legal reference will show "Needs verification".
 - The training, contractor, equipment and legal-register screens are Stage 6. Their database tables already exist.
-- The Stage 4 screens were tested end to end against a real Postgres with all migrations, not against the live project with real users. The workflow rules themselves were also checked on the live database.
+- The Stage 4 and 5 screens were tested end to end against a real Postgres with all migrations, not against the live project with real users. The workflow rules themselves were also checked on the live database.
 - No real statutory reporting rules are seeded. They must be configured and verified before use.
 - Offline capture covers answers given while a connection drops. Answers are kept on the device and sent automatically when the connection returns. Photos still need a connection.
