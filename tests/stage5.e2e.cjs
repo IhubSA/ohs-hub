@@ -29,7 +29,7 @@ const db = (sql, p = []) => pool.query(sql, p).then((r) => r.rows);
             select id, null, 'Section 8', 'General duties of employers to their employees', 'legislation', 'verified' from legal_frameworks where code = 'OHSA-85-1993'`);
 
   const b = await chromium.launch();
-  const ctx = await b.newContext({ viewport: { width: 1360, height: 900 } });
+  const ctx = await b.newContext({ viewport: { width: 1360, height: 900 }, serviceWorkers: 'block' });
   const fcss = fs.readFileSync(S + '/fonts.css', 'utf8');
   await ctx.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm', (r) => r.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(S + '/sbbundle/supabase.esm.js', 'utf8') }));
   await ctx.route('https://fonts.googleapis.com/**', (r) => r.fulfill({ contentType: 'text/css', body: fcss }));
@@ -112,7 +112,7 @@ const db = (sql, p = []) => pool.query(sql, p).then((r) => r.rows);
     ok('single section rewritten, others unchanged', (await p.inputValue('#sec-purpose')) === 'AI text for purpose.');
     const reqs = fs2.readFileSync(__dirname + '/anthropic-requests.jsonl', 'utf8').trim().split('\n').map((l) => JSON.parse(l));
     const last = reqs[reqs.length - 1];
-    ok('model is Claude Sonnet 5.5 with forced tool', last.model === 'claude-sonnet-5-5' && last.tool_choice?.name === 'submit_draft');
+    ok('model is Claude Sonnet 5.5 with the draft tool', last.model === 'claude-sonnet-5-5' && last.tools[0].name === 'submit_draft' && last.tool_choice?.type === 'auto' && last.messages[0].content.includes('ONLY by calling the submit_draft tool'));
     ok('system prompt forbids invented legislation and ratings', /Do not invent legislation/.test(last.system) && /Never assign risk ratings/.test(last.system));
     ok('rewrite asks for that section only', Object.keys(last.tools[0].input_schema.properties.sections.properties).join() === 'steps');
     ok('no reporter names sent', !reqs.some((r) => JSON.stringify(r).includes('Dineo') || JSON.stringify(r).includes('Mokoena')));

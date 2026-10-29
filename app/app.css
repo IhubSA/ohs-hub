@@ -279,3 +279,71 @@ dialog.modal.modal-wide { width: min(760px, calc(100vw - 32px)); }
   .summary-print { display: block; }
   .metric { break-inside: avoid; }
 }
+
+/* ---------------------------------------------------------------------
+   Installable app, version and phone layout (v1.5)
+   --------------------------------------------------------------------- */
+.side-foot .install-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; background: var(--signal); border-color: var(--signal); color: var(--ink); font-weight: 600; }
+.side-foot .install-btn:hover { background: #FF8A33; border-color: #FF8A33; color: var(--ink); }
+.side-foot .install-btn[hidden] { display: none; }
+.app-version { display: block; margin-top: 10px; color: #7FA6B1; font-size: .78rem; text-decoration: none; text-align: center; }
+.app-version:hover { color: var(--white); }
+.top-brand { display: none; align-items: center; gap: 8px; color: var(--ink); text-decoration: none; font: 700 1.1rem var(--font-head); }
+.tabbar { display: none; }
+.install-intro { display: grid; grid-template-columns: 56px 1fr; gap: 14px; align-items: center; }
+.install-intro p { margin: 0; }
+.install-steps { padding-left: 20px; margin: 16px 0 6px; display: grid; gap: 8px; }
+.about-head { display: flex; gap: 14px; align-items: center; margin-bottom: 10px; }
+.about-head img { border-radius: 12px; border: 1px solid var(--line); }
+.about-head h2 { margin: 0; font-size: 1.3rem; }
+.update-toast { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; border-left-color: var(--signal); }
+
+/* Installed app: keep clear of the phone's notch and home bar */
+body.app { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+.topbar { padding-top: max(12px, env(safe-area-inset-top)); }
+@media (max-width: 920px) {
+  .sidebar { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+  .top-brand { display: inline-flex; }
+}
+
+@media (max-width: 720px) {
+  /* Bottom tab bar */
+  .tabbar { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    background: var(--white); border-top: 1px solid var(--line); padding: 4px 4px max(4px, env(safe-area-inset-bottom)); box-shadow: 0 -4px 16px rgba(3, 30, 38, .06); }
+  .tabbar a, .tabbar button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 52px; padding: 4px 2px;
+    background: none; border: 0; border-radius: var(--r-sm); color: var(--muted); font: 600 .72rem var(--font-body); text-decoration: none; cursor: pointer; }
+  .tabbar svg { width: 22px; height: 22px; }
+  .tabbar a[aria-current="page"] { color: var(--ink); background: #EAF3F5; }
+  .tabbar a[aria-current="page"] svg { color: var(--signal); }
+  .content { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+  .toasts { bottom: calc(76px + env(safe-area-inset-bottom)); right: 12px; left: 12px; max-width: none; }
+
+  /* Top bar: menu, logo and bell only */
+  .topbar { padding-left: 12px; padding-right: 12px; gap: 8px; }
+  .topbar .menu-btn { padding: 7px 9px; }
+
+  /* Typing on iPhone: 16px text stops Safari zooming into every field */
+  input, select, textarea, .toolbar input, .toolbar select { font-size: 16px !important; }
+
+  /* Bigger touch targets */
+  .chip { padding: 9px 14px; }
+  .btn { min-height: 44px; }
+  .btn-link { padding: 8px 6px; }
+
+  /* Pop-ups slide up from the bottom and use the full width */
+  dialog.modal, dialog.modal.modal-wide { width: 100vw; max-width: 100vw; margin: auto 0 0; border-radius: 16px 16px 0 0; max-height: 92vh; max-height: 92dvh; }
+  .modal-body { max-height: calc(92dvh - 150px); padding-left: 16px; padding-right: 16px; }
+  .modal-head { padding: 16px 16px 0; }
+  .modal-foot { padding: 12px 16px max(16px, env(safe-area-inset-bottom)); position: sticky; bottom: 0; background: var(--white); border-top: 1px solid #EAF2F4; }
+  .modal-foot .btn { flex: 1 1 auto; }
+
+  /* Tabs scroll sideways instead of wrapping */
+  .tabs { overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { white-space: nowrap; flex: none; }
+
+  .page-title .btn { width: 100%; }
+  .page-title > div + .btn, .page-title > .btn-row { width: 100%; }
+}
+@media (display-mode: standalone) { .side-foot .install-btn { display: none; } }
+@media print { .tabbar, .update-toast { display: none !important; } }

@@ -84,7 +84,7 @@ async function handle(route) {
   const b = await chromium.launch();
   const out = []; const ok = (name, c, extra = '') => out.push(`${c ? 'PASS' : 'FAIL'} ${name}${c ? '' : ' ' + extra}`);
   const errors = [];
-  const ctx = await b.newContext({ viewport: { width: 1360, height: 900 } });
+  const ctx = await b.newContext({ viewport: { width: 1360, height: 900 }, serviceWorkers: 'block' });
   const fcss = fs.readFileSync(S + '/fonts.css', 'utf8');
   await ctx.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm', (r) => r.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(S + '/sbbundle/supabase.esm.js', 'utf8') }));
   await ctx.route('https://fonts.googleapis.com/**', (r) => r.fulfill({ contentType: 'text/css', body: fcss }));

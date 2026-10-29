@@ -74,6 +74,10 @@ async function renderList(view, { state, can, query }) {
   view.append(h('div', { class: 'page-title' },
     h('div', {}, h('h1', {}, 'Incidents'), h('p', {}, can.staff ? 'Injuries, near misses, dangerous occurrences and unsafe conditions.' : 'Report incidents and hazards, and follow the ones you reported.')),
     h('button', { class: 'btn btn-primary', onclick: async () => { const r = await reportIncident(state); if (r) location.hash = `#/incidents/${r.id}`; } }, 'Report an incident')));
+  if (query.get('new') === '1') { // "Report an incident" shortcut on the installed app icon
+    history.replaceState(null, '', '#/incidents');
+    setTimeout(async () => { const r = await reportIncident(state); if (r) location.hash = `#/incidents/${r.id}`; }, 0);
+  }
   const filters = can.staff ? [['open', 'Open'], ['awaiting', 'Awaiting investigation'], ['mine', 'Reported by me'], ['closed', 'Closed'], ['all', 'All']] : [['mine', 'Reported by me']];
   view.append(h('div', { class: 'filters' },
     h('div', { class: 'chips', style: 'margin:0' }, filters.map(([k, l]) => h('button', { class: 'chip', 'aria-pressed': String(f === k), onclick: () => setQuery('incidents', { f: k, cat }) }, l))),

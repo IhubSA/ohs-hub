@@ -23,7 +23,8 @@ Built by iHubSA on GitHub Pages, Supabase (Postgres, Auth, Storage, Edge Functio
 - **Stage 3 (accounts, companies, sites, people, team and roles):** complete. The app is at `/app/` and connected to the live Supabase project.
 - **Stage 4 (core OHS modules):** complete. Dashboard, incidents and investigations, corrective actions, inspections (checklists, schedules, mobile capture), risk assessments, risk register and document control.
 - **Stage 5 (AI drafting and reports):** complete. AI drafting for documents, hazards, checklists and investigations, plus OHS reports with PDF, Word and CSV export. AI switches on once the Anthropic key is added (see `docs/DEPLOYMENT.md`).
+- **Phone and install (v1.5.0):** the app works on phones with a bottom tab bar, and can be installed on phones, tablets and computers from the **Install app** button. The version number is in the menu and on My profile.
 - **Stage 6 (additional modules):** next.
-- Tests: 104 database security and workflow checks, 44 Stage 4 and 34 Stage 5 end-to-end checks against a real Postgres, and 26 app click-through checks, all passing. See `tests/README.md`.
+- Tests: 104 database security and workflow checks, 44 Stage 4, 34 Stage 5 and 63 phone end-to-end checks against a real Postgres, and 26 app click-through checks, all passing. See `tests/README.md`.
 
 No secrets are stored in this repository.

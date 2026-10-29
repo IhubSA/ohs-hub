@@ -26,7 +26,7 @@ const db = (sql, p = []) => pool.query(sql, p).then((r) => r.rows);
   await db(`insert into employees(org_id,first_name,last_name,site_id) values ($1,'Craig','Adams',$2)`, [org, site]);
 
   const b = await chromium.launch();
-  const ctx = await b.newContext({ viewport: { width: 1360, height: 900 } });
+  const ctx = await b.newContext({ viewport: { width: 1360, height: 900 }, serviceWorkers: 'block' });
   const fcss = fs.readFileSync(S + '/fonts.css', 'utf8');
   await ctx.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm', (r) => r.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(S + '/sbbundle/supabase.esm.js', 'utf8') }));
   await ctx.route('https://fonts.googleapis.com/**', (r) => r.fulfill({ contentType: 'text/css', body: fcss }));

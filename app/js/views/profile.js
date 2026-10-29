@@ -1,6 +1,8 @@
 // The signed-in person's own profile, email preferences and password.
 import { sb, q } from '../sb.js';
-import { h, toast, errMsg, ROLE_LABELS } from '../ui.js';
+import { h, toast, errMsg, ROLE_LABELS, fmtDate } from '../ui.js';
+import { APP_VERSION, APP_RELEASED } from '../version.js';
+import { installApp, canOfferInstall, isStandalone, checkForUpdate } from '../install.js';
 
 export async function render(view, { state }) {
   const p = state.profile || {};
@@ -62,5 +64,21 @@ export async function render(view, { state }) {
       h('div', { class: 'card' }, h('h2', {}, 'Password'), pwForm),
       h('div', { class: 'card' }, h('h2', {}, 'Your organisations'),
         h('ul', { style: 'padding-left:18px;margin:8px 0 0' }, state.memberships.map((m) =>
-          h('li', {}, m.organisations.name, h('span', { class: 'muted' }, ` (${ROLE_LABELS[m.role]})`))))))));
+          h('li', {}, m.organisations.name, h('span', { class: 'muted' }, ` (${ROLE_LABELS[m.role]})`))))),
+      aboutCard())));
+}
+
+function aboutCard() {
+  const installed = isStandalone();
+  return h('div', { class: 'card about-app' },
+    h('div', { class: 'about-head' }, h('img', { src: 'icons/icon-192.png', alt: '', width: 56, height: 56 }),
+      h('div', {}, h('h2', {}, 'OHS Hub on this device'),
+        h('p', { class: 'muted', style: 'margin:2px 0 0' }, `Version ${APP_VERSION}, released ${fmtDate(APP_RELEASED)}`))),
+    h('p', {}, installed
+      ? 'You are using the installed app. It opens from its own icon and updates itself when a new version is released.'
+      : 'Install OHS Hub on your phone, tablet or computer to open it from its own icon, full screen, like any other app.'),
+    h('div', { class: 'btn-row' },
+      canOfferInstall() ? h('button', { class: 'btn btn-primary', type: 'button', onclick: installApp }, 'Install app') : null,
+      h('button', { class: 'btn btn-secondary', type: 'button', onclick: () => checkForUpdate({ manual: true }) }, 'Check for updates')),
+    h('p', { class: 'small muted', style: 'margin:12px 0 0' }, 'Your records are kept online, not on the device, so signing in anywhere shows the same information.'));
 }

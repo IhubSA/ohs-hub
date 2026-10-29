@@ -36,6 +36,14 @@ Only you can do these, because they need the dashboard or a secret value.
 3. Go to Settings → Pages → Deploy from a branch → `main` / root.
 4. If you later use a custom domain, update `SITE_URL` in `tools/build_site.py` (then rebuild), add the `SITE_URL` and `ALLOWED_ORIGINS` Edge Function secrets, and update the Auth URLs above.
 
+## Releasing a new version of the app
+
+1. Open `app/js/version.js` and raise `APP_VERSION` (for example `1.5.0` → `1.5.1` for fixes, `1.6.0` for Stage 6), and set `APP_RELEASED` to today's date.
+2. Upload the changed files to GitHub as usual.
+3. Anyone with OHS Hub open sees "A new version of OHS Hub is available" within 30 minutes (or straight away on My profile → Check for updates), and the installed app refreshes itself. You don't need to do anything on people's devices.
+
+The installable app is made of `app/manifest.webmanifest`, `app/sw.js` (opens the app quickly and without signal; it never stores database or sign-in traffic) and the icons in `app/icons/`.
+
 ## Make yourself a platform admin (after you register)
 
 ```sql

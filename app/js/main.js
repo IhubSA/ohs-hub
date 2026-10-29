@@ -4,6 +4,8 @@ import { sb, q } from './sb.js';
 import { h, icon, toast, errMsg, ROLE_LABELS, fmtDate } from './ui.js';
 import { renderSetup } from './views/setup.js';
 import { clearCache } from './data.js';
+import { APP_VERSION } from './version.js';
+import { initInstall, installApp, canOfferInstall, onInstallChange } from './install.js';
 
 const root = document.getElementById('root');
 const ORG_KEY = 'ohs_current_org';
@@ -41,6 +43,7 @@ const ICONS = {
   actions: '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
   documents: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>',
   reports: '<path d="M4 20h16"/><path d="M7 20V11M12 20V5M17 20v-6"/>',
+  download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
 };
 
 const ROUTES = {
@@ -66,6 +69,7 @@ export function navigate(route) { location.hash = `#/${route}`; }
 // Boot
 // ---------------------------------------------------------------------
 async function boot() {
+  initInstall();
   // Invitation links arrive as app/?invite=TOKEN. Keep the token until the
   // person is signed in, then remove it from the address bar.
   const url = new URL(location.href);
@@ -169,7 +173,10 @@ function renderShell() {
     h('div', { class: 'side-foot' },
       h('div', { class: 'who' }, state.profile?.full_name || state.user.email),
       h('div', { class: 'role' }, ROLE_LABELS[state.role]),
-      h('button', { type: 'button', onclick: async () => { await sb.auth.signOut(); } }, 'Sign out')));
+      els.installBtn = h('button', { type: 'button', class: 'install-btn', onclick: installApp, hidden: !canOfferInstall() }, icon(ICONS.download), 'Install app'),
+      h('button', { type: 'button', onclick: async () => { await sb.auth.signOut(); } }, 'Sign out'),
+      h('a', { class: 'app-version', href: '#/profile', title: 'About this app' }, `OHS Hub v${APP_VERSION}`)));
+  onInstallChange(() => { if (els.installBtn) els.installBtn.hidden = !canOfferInstall(); });
 
   els.bellCount = h('span', { class: 'count', hidden: true });
   const trial = state.sub?.status === 'trialing' && state.sub.trial_ends_at
@@ -178,6 +185,7 @@ function renderShell() {
     h('button', { class: 'bell menu-btn', type: 'button', 'aria-controls': 'sidebar', 'aria-expanded': 'false',
       onclick: (e) => { sidebar.classList.add('can-animate'); const open = sidebar.classList.toggle('is-open'); e.currentTarget.setAttribute('aria-expanded', String(open)); } },
       icon(ICONS.menu), 'Menu'),
+    h('a', { class: 'top-brand', href: '#/dashboard', 'aria-label': 'OHS Hub dashboard' }, h('img', { src: 'icons/favicon-64.png', alt: '', width: 28, height: 28 }), h('span', {}, 'OHS Hub')),
     h('span', { class: 'spacer' }), trial,
     h('a', { class: 'bell', href: '#/notifications', 'aria-label': 'Notifications' }, icon(ICONS.bell), els.bellCount));
   els.content = h('main', { class: 'content', id: 'main', tabindex: '-1' });
@@ -189,7 +197,14 @@ function renderShell() {
     if (sidebar.classList.contains('is-open') && !sidebar.contains(e.target) && !menuBtn.contains(e.target)) closeMenu();
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sidebar.classList.contains('is-open')) { closeMenu(); menuBtn.focus(); } });
-  root.append(h('div', { class: 'app-shell' }, sidebar, h('div', { class: 'main' }, topbar, els.content)));
+  // Phone tab bar: the four screens people use most, plus the full menu.
+  const tabs = ['dashboard', 'incidents', 'actions', can.staff ? 'inspections' : 'documents']
+    .filter((k) => ROUTES[k] && (!ROUTES[k].when || ROUTES[k].when()));
+  const short = { dashboard: 'Home', incidents: 'Incidents', actions: 'Actions', inspections: 'Inspect', documents: 'Documents' };
+  els.tabbar = h('nav', { class: 'tabbar', 'aria-label': 'Main' },
+    tabs.map((k) => h('a', { href: `#/${k}`, dataset: { route: k } }, icon(ICONS[ROUTES[k].icon]), h('span', {}, short[k]))),
+    h('button', { type: 'button', 'aria-controls': 'sidebar', onclick: (e) => { e.stopPropagation(); menuBtn.click(); } }, icon(ICONS.menu), h('span', {}, 'More')));
+  root.append(h('div', { class: 'app-shell' }, sidebar, h('div', { class: 'main' }, topbar, els.content)), els.tabbar);
   refreshBell();
 }
 
@@ -210,7 +225,7 @@ async function route() {
   const r = ROUTES[key] && (!ROUTES[key].when || ROUTES[key].when()) ? ROUTES[key] : null;
   if (!r) { navigate('dashboard'); return; }
   els.sidebar.classList.remove('is-open');
-  els.sidebar.querySelectorAll('.side-nav a').forEach((a) => {
+  [...els.sidebar.querySelectorAll('.side-nav a'), ...els.tabbar.querySelectorAll('a')].forEach((a) => {
     if (a.dataset.route === key) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
   document.title = `${r.label} | OHS Hub`;

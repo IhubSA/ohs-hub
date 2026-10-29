@@ -1,0 +1,23 @@
+{
+  "name": "OHS Hub",
+  "short_name": "OHS Hub",
+  "description": "Occupational health and safety management for South African workplaces.",
+  "id": "./",
+  "start_url": "./#/dashboard",
+  "scope": "../",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F3F8F9",
+  "theme_color": "#052E3A",
+  "lang": "en-ZA",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Report an incident", "short_name": "Report", "url": "./#/incidents?new=1", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Corrective actions", "short_name": "Actions", "url": "./#/actions", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
