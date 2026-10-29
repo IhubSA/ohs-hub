@@ -9,15 +9,19 @@ Built by iHubSA on GitHub Pages, Supabase (Postgres, Auth, Storage, Edge Functio
 | `/` | Public marketing website (static HTML) |
 | `assets/` | Shared CSS, JavaScript, logo and images |
 | `supabase/migrations/` | Database schema, security rules and reference data (run in order) |
-| `supabase/functions/` | Edge Functions: `contact-submit`, `send-notifications` |
+| `app/` | The signed-in OHS Hub application |
+| `supabase/functions/` | Edge Functions: `contact-submit`, `send-notifications`, `invite-user` |
+| `tests/` | App click-through test |
 | `supabase/tests/` | Automated tenant-isolation and workflow tests |
 | `docs/` | `IMPLEMENTATION_PLAN.md` (architecture, schema, roles, stages) and `DEPLOYMENT.md` |
 | `tools/build_site.py` | Regenerates the marketing pages from one shared header/footer |
 
 ## Status
 
-- **Stage 1 (plan and schema):** complete, with 48 security tests passing.
-- **Stage 2 (marketing website):** complete. The contact form, sign-in and registration activate once `assets/js/config.js` is filled in.
-- **Stage 3 onwards:** the authenticated app at `/app/` hasn't been built yet. See `docs/IMPLEMENTATION_PLAN.md`.
+- **Stage 1 (plan and schema):** complete.
+- **Stage 2 (marketing website):** complete.
+- **Stage 3 (accounts, companies, sites, people, team and roles):** complete. The app is at `/app/` and connected to the live Supabase project.
+- **Stage 4 (core OHS modules):** next. See `docs/IMPLEMENTATION_PLAN.md`.
+- Tests: 54 database security checks, 20 live isolation checks and 26 app click-through checks, all passing.
 
 No secrets are stored in this repository.
