@@ -138,3 +138,30 @@ export function setQuery(route, params) {
   const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
   location.hash = `#/${route}${qs ? '?' + qs : ''}`;
 }
+
+// ---------------------------------------------------------------------
+// Exports
+// ---------------------------------------------------------------------
+export function downloadBlob(filename, mime, content) {
+  const url = URL.createObjectURL(new Blob([content], { type: mime }));
+  const a = h('a', { href: url, download: filename });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+export const safeName = (s) => String(s || 'document').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').slice(0, 80);
+
+// Word-compatible document (.doc, opens in Microsoft Word and LibreOffice).
+// The node is built with h(), so all record text is already escaped.
+export function downloadWord(filename, title, node) {
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>${title.replace(/[<>&]/g, '')}</title>
+<style>body{font-family:Arial,sans-serif;font-size:11pt;color:#052E3A} h1{font-size:18pt;color:#005C72} h2{font-size:13pt;color:#005C72;margin-top:14pt}
+table{border-collapse:collapse;width:100%} td,th{border:1px solid #B6D2D9;padding:4pt 6pt;text-align:left;vertical-align:top} .muted{color:#587480}
+p{white-space:pre-wrap}</style></head><body>${node.outerHTML}</body></html>`;
+  downloadBlob(`${safeName(filename)}.doc`, 'application/msword', '﻿' + html);
+}
+
+export function downloadCsv(filename, rows) {
+  const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  downloadBlob(`${safeName(filename)}.csv`, 'text/csv;charset=utf-8', '﻿' + rows.map((r) => r.map(cell).join(',')).join('\r\n'));
+}

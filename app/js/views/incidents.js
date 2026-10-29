@@ -8,6 +8,7 @@ import {
   INCIDENT_CATEGORIES, INCIDENT_STATUS, INVESTIGATION_STATUS, statusBadge, kv, uploadFile, openFile, fileButton, setQuery, today, addDays,
 } from '../data.js';
 import { actionsPanel } from './actions.js';
+import { aiQuota, aiAvailability, callAI, withBusy, reviewPanel, suggestionDialog, aiError } from '../ai.js';
 
 const INVOLVEMENT = { injured: 'Injured person', involved: 'Involved', first_aider: 'First aider', supervisor_on_duty: 'Supervisor on duty', other: 'Other' };
 const FINDING = { immediate_cause: 'Immediate cause', underlying_cause: 'Underlying cause', contributing_factor: 'Contributing factor', finding: 'Other finding' };
@@ -146,7 +147,8 @@ async function renderDetail(view, { state, can, reload }, id) {
       witnessCard(org, inc, witnesses, canAddInfo && !closed, reload),
       evidenceCard(org, inc, evidence, canAddInfo && !closed, reload))));
 
-  if (can.staff || isInvestigator) view.append(investigationCard({ org, inc, inv, members, names, can, me, reload }));
+  const aiAvail = inv && (can.edit || isInvestigator) ? aiAvailability(await aiQuota(org)) : { ok: false };
+  if (can.staff || isInvestigator) view.append(investigationCard({ org, inc, inv, members, names, can, me, reload, aiAvail }));
   if (inv) view.append(await findingsCard({ org, inv, can, me, reload }));
   if (can.staff) {
     view.append(await statutoryCard({ org, inc, members, names, can, reload }));
@@ -244,7 +246,7 @@ function evidenceCard(org, inc, evidence, canAdd, reload) {
   return card;
 }
 
-function investigationCard({ org, inc, inv, members, names, can, me, reload }) {
+function investigationCard({ org, inc, inv, members, names, can, me, reload, aiAvail }) {
   const card = h('div', { class: 'card' }, h('h2', {}, 'Investigation'));
   const investigators = members.filter((m) => ['org_admin', 'ohs_manager', 'safety_officer', 'supervisor'].includes(m.role));
   if (!inv) {
@@ -307,6 +309,7 @@ function investigationCard({ org, inc, inv, members, names, can, me, reload }) {
         { name: 'recommendations', label: 'Recommendations', type: 'textarea', rows: 4, value: inv.recommendations, maxlength: 4000 },
         { name: 'target_date', label: 'Target date', type: 'date', value: inv.target_date }],
       onSubmit: async (v) => upd({ summary: v.summary || null, recommendations: v.recommendations || null, target_date: v.target_date || null }, 'Investigation saved.') }) }, 'Write summary'));
+    if (aiAvail?.ok) btns.push(h('button', { class: 'btn btn-secondary', onclick: () => investigationSupport(org, inc, inv, reload) }, 'Suggest questions with AI'));
     btns.push(h('button', { class: 'btn btn-primary', onclick: async () => {
       if (!inv.summary) { toast('Write a summary of findings before submitting.', 'err'); return; }
       if (await confirmAction('Submit for review?', 'An OHS manager or administrator (not the investigator) will review and approve the investigation.', 'Submit for review', false)) upd({ status: 'submitted' }, 'Submitted for review.');
@@ -383,4 +386,34 @@ async function statutoryCard({ org, inc, members, names, can, reload }) {
       h('div', { class: 'muted small' }, [r.responsible_id ? `Responsible: ${names.get(r.responsible_id) || '—'}` : null, r.due_at ? `Due ${fmtDateTime(r.due_at)}` : null, r.submitted_at ? `Submitted ${fmtDate(r.submitted_at)}` : null].filter(Boolean).join('. '))),
     can.edit ? h('button', { class: 'btn-link', onclick: () => form(r) }, 'Update') : null))));
   return card;
+}
+
+async function investigationSupport(org, inc, inv, reload) {
+  const vals = await modalForm({ title: 'Investigation support from AI', submitLabel: 'Get suggestions',
+    intro: 'The AI suggests questions, evidence and possible factors to explore. They are prompts, not findings. Edit the description below to remove names and personal details before sending.',
+    fields: [
+      { name: 'description', label: 'What happened (as sent to the AI)', type: 'textarea', required: true, rows: 5, maxlength: 4000, value: inc.description },
+      { name: 'immediate_controls', label: 'Immediate controls taken', type: 'textarea', rows: 2, maxlength: 1500, value: inc.immediate_controls || '' },
+    ], onSubmit: async (x) => x });
+  if (!vals) return;
+  let r;
+  try {
+    r = await withBusy('Preparing investigation prompts…', () => callAI({ task: 'investigation_support', org_id: org,
+      inputs: { category: INCIDENT_CATEGORIES[inc.category], description: vals.description, immediate_controls: vals.immediate_controls, site_id: inc.site_id } }));
+  } catch (e) { aiError(e); return; }
+  let added = 0;
+  const factors = (r.output.possible_factors || []).map((f) => {
+    const btn = h('button', { class: 'btn btn-secondary btn-sm', type: 'button', onclick: async () => {
+      try {
+        await q(sb.from('investigation_findings').insert({ investigation_id: inv.id, org_id: org, finding_type: f.type, description: f.factor.slice(0, 2000), is_verified: false, source: 'ai_suggestion' }));
+        btn.textContent = 'Added as unconfirmed'; btn.disabled = true; added++;
+      } catch (e) { toast(errMsg(e), 'err'); }
+    } }, 'Add to explore');
+    return h('div', { class: 'ai-item' }, h('div', {}, h('strong', {}, f.factor), h('div', { class: 'muted small' }, FINDING[f.type] || f.type)), btn);
+  });
+  const body = h('div', {}, reviewPanel({ ...r.validation, evidence_to_collect: r.output.evidence_to_collect }, []),
+    h('h3', { class: 'section-label' }, 'Questions to ask'), h('ol', {}, (r.output.questions || []).map((x) => h('li', {}, x))),
+    h('h3', { class: 'section-label' }, 'Possible factors to explore'), factors.length ? h('div', { class: 'ai-list' }, factors) : h('p', { class: 'muted' }, 'None suggested.'));
+  const { dlg } = suggestionDialog({ title: 'Investigation prompts', intro: 'Added factors are marked "Not yet confirmed" until evidence supports them.', body });
+  dlg.addEventListener('close', () => { if (added) reload(); });
 }

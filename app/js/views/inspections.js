@@ -10,6 +10,7 @@ import {
 } from '../data.js';
 import { STARTERS, CATEGORIES } from '../starters.js';
 import { createAction, actionsPanel } from './actions.js';
+import { aiQuota, aiAvailability, callAI, withBusy, reviewPanel, suggestionDialog, aiError } from '../ai.js';
 
 const FREQ = { once: 'Once', daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', quarterly: 'Quarterly', annually: 'Annually' };
 const RESP = { compliant: 'Compliant', non_compliant: 'Non-compliant', not_applicable: 'Not applicable', not_inspected: 'Not inspected' };
@@ -239,6 +240,8 @@ async function renderBuilder(view, { state, can, reload }, id) {
   const buttons = [];
   if (editable) {
     buttons.push(h('button', { class: 'btn btn-primary', onclick: () => itemForm() }, 'Add question'));
+    const avail = aiAvailability(await aiQuota(org));
+    if (avail.ok) buttons.push(h('button', { class: 'btn btn-secondary', onclick: () => suggestQuestions(org, t, items, reload) }, 'Suggest questions with AI'));
     buttons.push(h('button', { class: 'btn btn-secondary', onclick: () => modalForm({ title: 'Checklist details', submitLabel: 'Save',
       fields: [{ name: 'title', label: 'Title', required: true, value: t.title, maxlength: 200 },
         { name: 'category', label: 'Category', type: 'select', value: t.category, options: opt(CATEGORIES) },
@@ -452,4 +455,41 @@ async function renderReport(view, { org, ins, items, byItem, can, reload }) {
         try { await q(sb.from('inspections').update({ status: 'closed' }).eq('id', ins.id)); toast('Inspection closed out.'); reload(); } catch (e) { toast(errMsg(e), 'err'); }
       } } }, 'Close out inspection')));
   }
+}
+
+async function suggestQuestions(org, t, items, reload) {
+  const vals = await modalForm({ title: 'Suggest checklist questions with AI', submitLabel: 'Suggest questions',
+    intro: 'Describe what this checklist covers. You choose which suggestions to add, and the checklist still needs approval before use.',
+    fields: [
+      { name: 'work_area', label: 'Work area or activity', required: true, maxlength: 500, value: t.title },
+      { name: 'equipment', label: 'Equipment or specialised plant', type: 'textarea', rows: 2, maxlength: 1000 },
+      { name: 'scope', label: 'Scope and focus', type: 'textarea', rows: 2, maxlength: 1000, placeholder: 'e.g. Weekly walk-through by the supervisor, about 20 questions' },
+    ], onSubmit: async (x) => x });
+  if (!vals) return;
+  let r;
+  try {
+    r = await withBusy('Writing checklist questions…', () => callAI({ task: 'checklist_questions', org_id: org,
+      inputs: { checklist_category: CATEGORIES[t.category] || t.category, work_area: vals.work_area, equipment: vals.equipment, scope: vals.scope } }));
+  } catch (e) { aiError(e); return; }
+  const existing = new Set(items.map((i) => i.question.trim().toLowerCase()));
+  const boxes = [];
+  const body = h('div', {}, reviewPanel(r.validation, r.output.legal_references), (r.output.sections || []).map((sec) => h('fieldset', { class: 'ai-group' },
+    h('legend', {}, sec.section), (sec.questions || []).map((qq) => {
+      const dup = existing.has(qq.question.trim().toLowerCase());
+      const cb = h('input', { type: 'checkbox', checked: !dup });
+      boxes.push({ cb, section: sec.section, question: qq.question, guidance: qq.guidance });
+      return h('label', { class: 'ai-check' }, cb, h('span', {}, qq.question, dup ? h('span', { class: 'muted small' }, ' (already in checklist)') : null,
+        qq.guidance ? h('span', { class: 'muted small', style: 'display:block' }, qq.guidance) : null));
+    }))));
+  suggestionDialog({ title: 'Suggested questions', intro: 'Untick anything you do not want. You can edit questions after adding them.', body,
+    footer: (close) => h('button', { class: 'btn btn-primary', type: 'button', onclick: async () => {
+      const chosen = boxes.filter((b) => b.cb.checked);
+      if (!chosen.length) { toast('Tick at least one question.', 'err'); return; }
+      let n = (items[items.length - 1]?.sort_order || 0);
+      try {
+        await q(sb.from('inspection_template_items').insert(chosen.map((c) => ({ template_id: t.id, org_id: org, section: c.section.slice(0, 100),
+          question: c.question.slice(0, 400), guidance: c.guidance ? c.guidance.slice(0, 800) : null, sort_order: ++n }))));
+        toast(`${chosen.length} question${chosen.length === 1 ? '' : 's'} added.`); close(); reload();
+      } catch (e) { toast(errMsg(e), 'err'); }
+    } }, 'Add selected questions') });
 }

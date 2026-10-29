@@ -2,10 +2,11 @@
 // product spec), versions, review and approval, acknowledgements, print.
 // Approval only happens through the database review process.
 import { sb, q } from '../sb.js';
+import { aiQuota, aiAvailability, callAI, withBusy, reviewPanel, aiError } from '../ai.js';
 import { h, modalForm, confirmAction, toast, errMsg, emptyState, fmtDate, fmtDateTime } from '../ui.js';
 import {
   loadMembers, loadSites, loadDepts, nameMap, nextRef, memberOptions, siteOptions, today, addDays,
-  DOC_TYPES, DOC_PREFIX, DOC_STATUS, statusBadge, kv, setQuery,
+  DOC_TYPES, DOC_PREFIX, DOC_STATUS, statusBadge, kv, setQuery, downloadWord,
 } from '../data.js';
 
 const SOP = [
@@ -187,7 +188,17 @@ async function renderDetail(view, { state, can, reload }, id, versionId) {
     if (await confirmAction('Delete this draft document?', 'It has never been approved, so it can be deleted.', 'Delete draft'))
       act(async () => { await q(sb.from('document_versions').delete().eq('document_id', id)); await q(sb.from('documents').delete().eq('id', id)); location.hash = '#/documents'; }, 'Draft deleted.');
   } }, 'Delete draft'));
-  btns.push(h('button', { class: 'btn btn-secondary', onclick: () => window.print() }, 'Print'));
+  btns.push(h('button', { class: 'btn btn-secondary', onclick: () => window.print() }, 'Print or save as PDF'));
+  btns.push(h('button', { class: 'btn btn-secondary', onclick: () => {
+    const body = h('div', {}, h('h1', {}, doc.title),
+      h('p', { class: 'muted' }, `${doc.reference}, version ${shown.version_number}. ${DOC_STATUS[shown.status]}${shown.effective_date ? `, effective ${fmtDate(shown.effective_date)}` : ''}.`),
+      shown.status === 'approved' ? null : h('p', {}, h('strong', {}, 'NOT APPROVED: this version must not be used.')),
+      h('table', {}, h('tbody', {}, [['Owner', names.get(doc.owner_id)], ['Author', names.get(shown.created_by)],
+        ['Approved by', shown.approved_by ? `${names.get(shown.approved_by)}, ${fmtDate(shown.approved_at)}` : '—'], ['Review date', fmtDate(doc.review_date)]]
+        .map(([k, x]) => h('tr', {}, h('th', {}, k), h('td', {}, x || '—'))))),
+      schema.filter(([k]) => ((shown.content || {})[k] || '').trim()).map(([k, label]) => [h('h2', {}, label), h('p', {}, shown.content[k])]));
+    downloadWord(`${doc.reference} ${doc.title} v${shown.version_number}`, doc.title, body);
+  } }, 'Download Word'));
   view.append(h('div', { class: 'btn-row no-print', style: 'margin-bottom:16px' }, btns));
   if (myAck) view.append(h('p', { class: 'muted small' }, `You acknowledged this version on ${fmtDate(myAck.acknowledged_at)}.`));
   if (shown.status === 'draft' && can.staff && approvals.some((a) => a.decision === 'rejected')) {
@@ -195,7 +206,7 @@ async function renderDetail(view, { state, can, reload }, id, versionId) {
   }
 
   view.append(h('div', { class: 'detail-grid' },
-    editing ? editorCard(doc, shown, schema, reload) : contentCard(doc, shown, schema, sites, depts, names),
+    editing ? editorCard(doc, shown, schema, reload, { org, sites, quota: await aiQuota(org) }) : contentCard(doc, shown, schema, sites, depts, names),
     h('div', {},
       h('div', { class: 'card' }, h('h2', {}, 'Control information'), kv([
         ['Owner', names.get(doc.owner_id) || '—'],
@@ -226,27 +237,97 @@ function contentCard(doc, v, schema, sites, depts, names) {
   return card;
 }
 
-function editorCard(doc, v, schema, reload) {
+// AI-capable document types (the AI drafts these section by section)
+const AI_TYPES = ['sop', 'safe_work_procedure', 'method_statement', 'toolbox_talk', 'safety_alert', 'emergency_plan', 'policy'];
+
+function editorCard(doc, v, schema, reload, { org, sites, quota }) {
   const c = v.content || {};
   const inputs = {};
+  let aiJob = v.ai_job_id || null;
+  let aiRefs = v.source_refs || [];
   const status = h('span', { class: 'sync', role: 'status' }, 'Draft');
+  const review = h('div');
+  const markDirty = (msg) => { status.textContent = msg; status.className = 'sync offline'; };
   const form = h('form', { class: 'form doc-sections', onsubmit: async (e) => {
     e.preventDefault();
     const content = Object.fromEntries(Object.entries(inputs).map(([k, el]) => [k, el.value.trim()]));
     const btn = form.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'Saving…';
-    try { await q(sb.from('document_versions').update({ content }).eq('id', v.id)); toast('Draft saved.'); status.textContent = `Saved ${fmtDateTime(new Date().toISOString())}`; }
-    catch (err) { toast(errMsg(err), 'err'); }
+    try {
+      await q(sb.from('document_versions').update({ content, ai_job_id: aiJob, source_refs: aiRefs }).eq('id', v.id));
+      toast('Draft saved.'); status.textContent = `Saved ${fmtDateTime(new Date().toISOString())}`; status.className = 'sync';
+    } catch (err) { toast(errMsg(err), 'err'); }
     btn.disabled = false; btn.textContent = 'Save draft';
   } });
+
+  const avail = aiAvailability(quota);
+  const aiOn = AI_TYPES.includes(doc.doc_type) && avail.ok;
+  const current = () => Object.fromEntries(Object.entries(inputs).map(([k, el]) => [k, el.value.trim().slice(0, 1500)]).filter(([, x]) => x));
+
+  const draftAll = async () => {
+    const filled = Object.values(inputs).some((el) => el.value.trim());
+    const vals = await modalForm({
+      title: 'Draft with AI', submitLabel: 'Create draft',
+      intro: 'Describe the work. The more specific you are, the better the draft. Do not include people\'s names or personal details: this text is sent to the AI provider.',
+      fields: [
+        { name: 'task_description', label: 'What work does this cover?', type: 'textarea', required: true, rows: 3, maxlength: 2000, value: doc.title },
+        { name: 'site_id', label: 'Where is it done?', type: 'select', value: doc.site_id ?? '', options: [['', 'Not site-specific'], ...sites.filter((s) => s.is_active).map((s) => [s.id, s.name])] },
+        { name: 'who_does_it', label: 'Who does the work (roles)?', maxlength: 300, placeholder: 'e.g. Maintenance artisans, assistants' },
+        { name: 'equipment', label: 'Equipment, tools and materials', type: 'textarea', rows: 2, maxlength: 1000 },
+        { name: 'known_hazards', label: 'Hazards you already know about', type: 'textarea', rows: 2, maxlength: 1000 },
+        { name: 'existing_controls', label: 'Controls and PPE already in place', type: 'textarea', rows: 2, maxlength: 1000 },
+        { name: 'notes', label: 'Anything else the draft must include', type: 'textarea', rows: 2, maxlength: 1500 },
+        ...(filled ? [{ name: 'replace', label: 'Replace the text already in the form', type: 'checkbox', value: false, hint: 'Leave unticked to fill only the empty sections.' }] : []),
+      ],
+      onSubmit: async (vals) => vals,
+    });
+    if (!vals) return;
+    try {
+      const r = await withBusy('Drafting your document…', () => callAI({ task: 'document_draft', org_id: org, doc_type: doc.doc_type,
+        inputs: { title: doc.title, task_description: vals.task_description, site_id: vals.site_id || null, who_does_it: vals.who_does_it,
+          equipment: vals.equipment, known_hazards: vals.known_hazards, existing_controls: vals.existing_controls, notes: vals.notes } }));
+      let n = 0;
+      for (const [k, text] of Object.entries(r.output.sections || {})) {
+        if (inputs[k] && (vals.replace || !inputs[k].value.trim())) { inputs[k].value = text; n++; }
+      }
+      aiJob = r.job_id; aiRefs = r.output.legal_references || [];
+      review.replaceChildren(reviewPanel(r.validation, aiRefs));
+      markDirty(`AI draft added to ${n} section${n === 1 ? '' : 's'}. Review it, then save.`);
+      review.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) { aiError(e); }
+  };
+
+  const rewrite = async (k, label) => {
+    const vals = await modalForm({ title: `Rewrite "${label}" with AI`, submitLabel: 'Rewrite section',
+      fields: [{ name: 'instruction', label: 'What should change?', type: 'textarea', rows: 3, maxlength: 1000, placeholder: 'e.g. Add steps for isolating the power supply' }],
+      onSubmit: async (x) => x });
+    if (!vals) return;
+    try {
+      const r = await withBusy(`Rewriting ${label.toLowerCase()}…`, () => callAI({ task: 'document_draft', org_id: org, doc_type: doc.doc_type, section_key: k,
+        inputs: { title: doc.title, instruction: vals.instruction, current_text_of_this_section: inputs[k].value.trim(), other_sections: current() } }));
+      if (r.output.sections?.[k]) inputs[k].value = r.output.sections[k];
+      aiJob = r.job_id; aiRefs = [...aiRefs.filter((x) => !(r.output.legal_references || []).some((y) => y.reference === x.reference)), ...(r.output.legal_references || [])];
+      review.replaceChildren(reviewPanel(r.validation, r.output.legal_references));
+      markDirty(`${label} rewritten by AI. Review it, then save.`);
+    } catch (e) { aiError(e); }
+  };
+
   for (const [k, label] of schema) {
     const ta = h('textarea', { id: `sec-${k}`, rows: k === 'steps' ? 10 : 4, maxlength: 20000 }, c[k] || '');
+    ta.addEventListener('input', () => markDirty('Unsaved changes'));
     inputs[k] = ta;
-    form.append(h('div', { class: 'field' }, h('label', { for: `sec-${k}` }, label), ta));
+    form.append(h('div', { class: 'field' },
+      h('div', { class: 'label-row' }, h('label', { for: `sec-${k}` }, label),
+        aiOn ? h('button', { class: 'btn-link', type: 'button', onclick: () => rewrite(k, label) }, 'Rewrite with AI') : null), ta));
   }
   form.append(h('div', { class: 'btn-row' }, h('button', { class: 'btn btn-primary', type: 'submit' }, 'Save draft'), status));
+  if (v.ai_job_id && (v.source_refs || []).length) review.append(reviewPanel({}, v.source_refs));
+
+  const aiBar = AI_TYPES.includes(doc.doc_type) && (avail.ok || avail.reason) ? h('div', { class: 'ai-bar' },
+    avail.ok ? h('button', { class: 'btn btn-secondary', type: 'button', onclick: draftAll }, 'Draft with AI') : null,
+    avail.reason ? h('span', { class: 'muted small' }, avail.reason) : null) : null;
   return h('div', { class: 'card' }, h('h2', {}, 'Content'),
     h('p', { class: 'sub' }, doc.doc_type === 'sop' || doc.doc_type === 'safe_work_procedure' ? 'Number each work step on its own line. Leave out sections that do not apply.' : 'Leave out sections that do not apply.'),
-    form);
+    aiBar, review, form);
 }
 
 async function submitForReview(org, doc, v, members, me) {

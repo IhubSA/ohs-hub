@@ -40,6 +40,7 @@ const ICONS = {
   incidents: '<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>',
   actions: '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
   documents: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>',
+  reports: '<path d="M4 20h16"/><path d="M7 20V11M12 20V5M17 20v-6"/>',
 };
 
 const ROUTES = {
@@ -50,6 +51,7 @@ const ROUTES = {
   risk: { label: 'Risk assessments', icon: 'risk', load: () => import('./views/risk.js'), when: () => can.staff },
   register: { label: 'Risk register', icon: 'register', load: () => import('./views/register.js'), when: () => can.staff },
   documents: { label: 'Documents', icon: 'documents', load: () => import('./views/documents.js') },
+  reports: { label: 'Reports', icon: 'reports', load: () => import('./views/reports.js'), when: () => can.staff },
   company: { label: 'Company', icon: 'company', load: () => import('./views/company.js'), group: 'Organisation' },
   sites: { label: 'Sites & departments', icon: 'sites', load: () => import('./views/sites.js') },
   people: { label: 'People', icon: 'people', load: () => import('./views/people.js'), when: () => can.staff },

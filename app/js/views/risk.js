@@ -8,6 +8,7 @@ import {
   RA_TYPES, RECORD_STATUS, CONTROL_LEVELS, statusBadge, ratingChip, kv, setQuery,
 } from '../data.js';
 import { createAction, actionsPanel } from './actions.js';
+import { aiQuota, aiAvailability, callAI, withBusy, reviewPanel, suggestionDialog, aiError } from '../ai.js';
 
 export const HAZARD_CATEGORIES = ['Physical', 'Mechanical', 'Electrical', 'Chemical', 'Biological', 'Ergonomic', 'Psychosocial',
   'Fire and explosion', 'Working at height', 'Vehicles and mobile plant', 'Noise and vibration', 'Environmental', 'Other'];
@@ -121,6 +122,8 @@ async function renderDetail(view, { state, can, reload }, id) {
 
   const buttons = [];
   if (editable) buttons.push(h('button', { class: 'btn btn-primary', onclick: () => itemForm(org, ra, meth, members).then((r) => r && reload()) }, 'Add hazard'));
+  const avail = editable ? aiAvailability(await aiQuota(org)) : { ok: false };
+  if (avail.ok) buttons.push(h('button', { class: 'btn btn-secondary', onclick: () => suggestHazards(org, ra, meth, members, reload) }, 'Suggest hazards with AI'));
   if (can.edit && ra.status === 'draft') buttons.push(h('button', { class: 'btn btn-secondary', disabled: !items.length, onclick: () => setStatus('in_review', 'Submitted for approval.') }, 'Submit for approval'));
   if (can.manage && ra.status === 'in_review') {
     buttons.push(h('button', { class: 'btn btn-primary', disabled: !independent, title: independent ? null : 'An independent person must approve this assessment',
@@ -230,7 +233,7 @@ function itemForm(org, ra, meth, members, it = {}) {
         responsible_id: v.responsible_id || null, due_date: v.due_date || null,
       };
       if (it.id) return q(sb.from('risk_assessment_items').update(row).eq('id', it.id));
-      return q(sb.from('risk_assessment_items').insert({ ...row, assessment_id: ra.id, org_id: org, sort_order: Date.now() % 1e9 }));
+      return q(sb.from('risk_assessment_items').insert({ ...row, assessment_id: ra.id, org_id: org, sort_order: Date.now() % 1e9, ai_suggested: !!it.__ai }));
     },
   }).then((r) => { if (r) toast(it.id ? 'Hazard saved.' : 'Hazard added.'); return r; });
 }
@@ -250,4 +253,37 @@ async function addToRegister(org, ra, it) {
     toast(`Added to the risk register as ${reference}.`);
     return true;
   } catch (e) { toast(errMsg(e), 'err'); return false; }
+}
+
+async function suggestHazards(org, ra, meth, members, reload) {
+  const vals = await modalForm({ title: 'Suggest hazards with AI', submitLabel: 'Suggest hazards',
+    intro: 'The AI suggests hazards and controls only. You choose the likelihood and severity for each hazard you add, and your risk matrix calculates the rating. Do not include people\'s names.',
+    fields: [
+      { name: 'activity', label: 'Activity or task', type: 'textarea', required: true, rows: 2, maxlength: 1000, value: ra.activity || ra.title },
+      { name: 'environment', label: 'Work environment', maxlength: 500, placeholder: 'e.g. Indoor workshop, concrete floor, poor ventilation' },
+      { name: 'equipment', label: 'Equipment, plant and materials', type: 'textarea', rows: 2, maxlength: 1000 },
+      { name: 'notes', label: 'Anything else to consider', type: 'textarea', rows: 2, maxlength: 1000 },
+    ], onSubmit: async (x) => x });
+  if (!vals) return;
+  let r;
+  try {
+    r = await withBusy('Identifying hazards…', () => callAI({ task: 'hazard_suggestions', org_id: org,
+      inputs: { assessment_type: RA_TYPES[ra.assessment_type], activity: vals.activity, environment: vals.environment, equipment: vals.equipment, notes: vals.notes, site_id: ra.site_id } }));
+  } catch (e) { aiError(e); return; }
+  let added = 0;
+  const list = h('div', { class: 'ai-list' }, (r.output.hazards || []).map((hz) => {
+    const btn = h('button', { class: 'btn btn-secondary btn-sm', type: 'button', onclick: async () => {
+      const done = await itemForm(org, ra, meth, members, { __ai: true, hazard: hz.hazard, hazard_category: HAZARD_CATEGORIES.includes(hz.hazard_category) ? hz.hazard_category : 'Other',
+        persons_exposed: hz.persons_exposed, consequences: hz.consequences, existing_controls: hz.typical_existing_controls,
+        additional_controls: hz.additional_controls, control_levels: hz.control_levels, activity: ra.activity });
+      if (done) { btn.textContent = 'Added'; btn.disabled = true; added++; }
+    } }, 'Review and add');
+    return h('div', { class: 'ai-item' }, h('div', {}, h('strong', {}, hz.hazard), hz.hazard_category ? h('span', { class: 'muted small' }, ` (${hz.hazard_category})`) : null,
+      h('div', { class: 'small' }, 'Consequences: ', hz.consequences || '—'),
+      hz.typical_existing_controls ? h('div', { class: 'small muted' }, 'Check for: ', hz.typical_existing_controls) : null,
+      h('div', { class: 'small' }, 'Suggested controls: ', hz.additional_controls || '—')), btn);
+  }));
+  const { dlg } = suggestionDialog({ title: 'Suggested hazards', intro: 'Review each suggestion. Adding one opens the hazard form so you can edit it and choose the ratings.',
+    body: h('div', {}, reviewPanel(r.validation, r.output.legal_references), list) });
+  dlg.addEventListener('close', () => { if (added) reload(); });
 }
