@@ -105,7 +105,11 @@ async function handle({ method, path, search, headers, body, sub, role }) {
     if (path.startsWith('rpc/')) {
       const fn = path.slice(4); const args = body || {};
       const keys = Object.keys(args);
-      const sql = `select public.${ident(fn)}(${keys.map((k, i) => `${ident(k)} => $${i + 1}`).join(', ')}) as r`;
+      const argList = keys.map((k, i) => `${ident(k)} => $${i + 1}`).join(", ");
+      // Functions that return a set come back as an array, like PostgREST
+      const set = (await client.query(`select bool_or(proretset) s from pg_proc where proname = $1 and pronamespace = 'public'::regnamespace`, [fn])).rows[0]?.s;
+      const sql = set ? `select coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) as r from public.${ident(fn)}(${argList}) t`
+        : `select public.${ident(fn)}(${argList}) as r`;
       const { rows } = await client.query(sql, keys.map((k) => Array.isArray(args[k]) && args[k].some((x) => x && typeof x === 'object') ? JSON.stringify(args[k]) : args[k]));
       out = { status: 200, body: rows[0]?.r ?? null };
     } else {

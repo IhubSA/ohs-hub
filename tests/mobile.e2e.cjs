@@ -5,6 +5,7 @@ const fs = require('fs');
 const { handle, storage, pool } = require('./test-api-shim.cjs');
 const S = process.env.OHS_TEST_ASSETS || __dirname; // needs fonts.css, sbbundle/supabase.esm.js and a shots/ folder // needs fonts.css, sbbundle/supabase.esm.js and a shots/ folder
 const BASE = 'http://localhost:8768/';
+const V = require('fs').readFileSync(__dirname + '/../app/js/version.js', 'utf8').match(/APP_VERSION = '([^']+)'/)[1];
 const SB = 'https://paunnbnjxmkxgexihgnf.supabase.co';
 const U = {
   A: ['10000000-0000-4000-8000-00000000000a', 'brent@example.co.za', 'Brent Proctor', 'org_admin'],
@@ -26,8 +27,10 @@ const db = (sql, p = []) => pool.query(sql, p).then((r) => r.rows);
   const site = (await db(`insert into sites(org_id,name) values ($1,'Main Road Project') returning id`, [org]))[0].id;
   await db(`insert into employees(org_id,first_name,last_name,site_id) values ($1,'Craig','Adams',$2)`, [org, site]);
   await db(`update platform_settings set value = jsonb_set(value, '{enabled}', 'true') where key = 'ai'`);
-  await db(`insert into legal_requirements (framework_id, org_id, reference, requirement, requirement_kind, verification_status)
-            select id, null, 'Section 8', 'General duties of employers to their employees', 'legislation', 'verified' from legal_frameworks where code = 'OHSA-85-1993'`);
+  // Seed a verified library entry the way verify_legal_requirement() does (direct "verified" inserts are refused since migration 14)
+  await pool.query(`begin; select set_config('ohs.verifying', 'on', true);
+    insert into legal_requirements (framework_id, org_id, reference, requirement, requirement_kind, verification_status)
+    select id, null, 'Section 8', 'General duties of employers to their employees', 'legislation', 'verified' from legal_frameworks where code = 'OHSA-85-1993'; commit;`);
 
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 1360, height: 900 }, serviceWorkers: 'block' });
@@ -221,7 +224,7 @@ const db = (sql, p = []) => pool.query(sql, p).then((r) => r.rows);
     ok('phone: content clears the tab bar', lastY >= 80, lastY);
     await p.click('.tabbar button:has-text("More")'); await p.waitForTimeout(400);
     ok('phone: More opens the full menu', await p.evaluate(() => document.querySelector('#sidebar').classList.contains('is-open')));
-    ok('menu shows install button and version', await p.isVisible('.side-foot .install-btn') && (await p.textContent('.app-version')).includes('v1.5.0'));
+    ok('menu shows install button and version', await p.isVisible('.side-foot .install-btn') && (await p.textContent('.app-version')).includes(`v${V}`));
     await p.screenshot({ path: `${S}/shots/m-menu.png` });
     await p.click('.side-foot .install-btn'); await p.waitForSelector('dialog[aria-label="Install OHS Hub"]');
     ok('install instructions shown when browser gives no prompt', (await p.textContent('dialog[aria-label="Install OHS Hub"]')).includes('Install OHS Hub'));
@@ -230,9 +233,9 @@ const db = (sql, p = []) => pool.query(sql, p).then((r) => r.rows);
     await p.screenshot({ path: `${S}/shots/m-install.png` });
     await p.click('dialog[open] .modal-foot button');
     await go('#/profile');
-    ok('profile shows version and install card', (await text()).includes('Version 1.5.0') && await p.isVisible('.about-app button:has-text("Install app")'));
+    ok('profile shows version and install card', (await text()).includes(`Version ${V}`) && await p.isVisible('.about-app button:has-text("Install app")'));
     await p.click('.about-app button:has-text("Check for updates")'); await p.waitForTimeout(800);
-    ok('update check reports latest version', (await p.textContent('#toasts')).includes('latest version (v1.5.0)'));
+    ok('update check reports latest version', (await p.textContent('#toasts')).includes(`latest version (v${V})`));
     await p.screenshot({ path: `${S}/shots/m-profile.png`, fullPage: true });
     // iPhone zoom guard
     const fs16 = await p.evaluate(() => getComputedStyle(document.querySelector('#p-name')).fontSize);

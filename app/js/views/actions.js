@@ -12,6 +12,8 @@ import {
 const SOURCE_LINK = {
   incident: (id) => `#/incidents/${id}`, inspection: (id) => `#/inspections/${id}`,
   risk_assessment: (id) => `#/risk/${id}`, risk_register: () => '#/register',
+  legal_compliance: (id) => `#/legal/${id}`, emergency_drill: (id) => `#/emergency/${id}`,
+  equipment: (id) => `#/equipment/${id}`, contractor: (id) => `#/contractors/${id}`,
 };
 
 // Reusable: open the "new action" form from any module.

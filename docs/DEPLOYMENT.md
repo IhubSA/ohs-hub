@@ -6,7 +6,7 @@
 |---|---|
 | Supabase project | **OHS Hub**, ref `paunnbnjxmkxgexihgnf`, region eu-west-2 (London), Free plan |
 | API URL | `https://paunnbnjxmkxgexihgnf.supabase.co` (already in `assets/js/config.js`) |
-| Database | Migrations 1–13 applied, Supabase security scan clean apart from the intentional items listed below |
+| Database | Migrations 1–14 applied, Supabase security scan clean apart from the intentional items listed below |
 | Edge Functions | `contact-submit` (public), `send-notifications` (scheduled), `invite-user` (signed-in admins), `ai-generate` (signed-in users; checks role and allowance) |
 | Scheduled jobs | `ohs-daily-reminders` at 06:00 SAST, `ohs-send-notifications` every 10 minutes |
 | Email | Resend, from `OHS Hub <notifications@ihub-sa.co.za>` using the send-only key "OHS Hub (Supabase)" |
@@ -44,6 +44,17 @@ Only you can do these, because they need the dashboard or a secret value.
 
 The installable app is made of `app/manifest.webmanifest`, `app/sw.js` (opens the app quickly and without signal; it never stores database or sign-in traffic) and the icons in `app/icons/`.
 
+## Add a second platform administrator
+
+Shared legal library entries need a second competent person to verify them. Once that person has registered, run:
+
+```sql
+insert into public.platform_admins (user_id)
+select id from auth.users where email = 'their-email@example.co.za';
+```
+
+Platform administrators see organisation names, plans and usage, but not customers' safety records.
+
 ## Make yourself a platform admin (after you register)
 
 ```sql
@@ -60,7 +71,7 @@ select id from auth.users where email = 'ihubsa@gmail.com';
 
 ## Intentional security-advisor items
 
-- *Signed-in users can execute SECURITY DEFINER functions* (18). These are the row-level-security helpers (`is_member`, `has_role` and similar), which answer questions about the caller's own access only, and the app RPCs (`create_organisation`, `accept_invitation`, `decide_document_version`, `submit_document_version`, `next_reference`, `ai_quota`), which each check permissions themselves. Signed-out visitors can't call any database function.
+- *Signed-in users can execute SECURITY DEFINER functions* (20). These are the row-level-security helpers (`is_member`, `has_role` and similar), which answer questions about the caller's own access only, and the app RPCs (`create_organisation`, `accept_invitation`, `decide_document_version`, `submit_document_version`, `next_reference`, `ai_quota`, `verify_legal_requirement`, `platform_organisations`), which each check permissions themselves. Signed-out visitors can't call any database function.
 - *Leaked password protection disabled.* Supabase offers this on paid plans. Turn it on (Authentication → Passwords) after upgrading to Pro.
 - *RLS enabled, no policy* on `reference_counters`. This is deliberate: only the `next_reference` function may touch it.
 

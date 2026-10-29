@@ -7,12 +7,13 @@ const EMP_STATUS = { active: ['Active', 'ok'], inactive: ['Inactive', 'warn'], t
 const ACCESS = { pending: ['Pending', 'warn'], approved: ['Approved', 'ok'], suspended: ['Suspended', 'bad'], expired: ['Expired', 'bad'] };
 
 export async function render(view, ctx) {
-  const tab = ctx.params[0] === 'contractors' ? 'contractors' : 'employees';
+  if (ctx.params[0] === 'contractors') { location.replace('#/contractors'); return; } // contractors have their own page since v1.6
+  const tab = 'employees';
   view.append(h('div', { class: 'page-title' }, h('div', {}, h('h1', {}, 'People'),
     h('p', {}, 'Your workforce and the contractors who work on your sites.'))));
   const tabs = h('div', { class: 'tabs', role: 'tablist' },
     [['employees', 'Employees'], ['contractors', 'Contractors']].map(([k, l]) =>
-      h('button', { role: 'tab', 'aria-selected': String(k === tab), onclick: () => ctx.navigate(k === 'employees' ? 'people' : 'people/contractors') }, l)));
+      h('button', { role: 'tab', 'aria-selected': String(k === tab), onclick: () => ctx.navigate(k === 'employees' ? 'people' : 'contractors') }, l)));
   const panel = h('div', { role: 'tabpanel' });
   view.append(tabs, panel);
   if (tab === 'employees') await employees(panel, ctx); else await contractors(panel, ctx);

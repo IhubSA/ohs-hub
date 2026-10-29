@@ -16,7 +16,7 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch { /* private mode */ } },
 };
 
-export const state = { session: null, user: null, profile: null, memberships: [], org: null, role: null, sub: null };
+export const state = { session: null, user: null, profile: null, memberships: [], org: null, role: null, sub: null, features: {}, isPlatformAdmin: false };
 
 // Permission helpers mirror the database rules (the database is the authority).
 export const can = {
@@ -44,6 +44,12 @@ const ICONS = {
   documents: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>',
   reports: '<path d="M4 20h16"/><path d="M7 20V11M12 20V5M17 20v-6"/>',
   download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+  legal: '<path d="M12 3v18M5 21h14"/><path d="M4 7h16"/><path d="m4 7-2 6a3 3 0 0 0 4 0zM20 7l-2 6a3 3 0 0 0 4 0z"/>',
+  training: '<path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11v5c3 2 9 2 12 0v-5"/>',
+  contractors: '<path d="M4 16a8 8 0 0 1 16 0z"/><path d="M12 8V5M3 19h18"/>',
+  equipment: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/>',
+  emergency: '<path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/><path d="M12 8v8M8 12h8"/>',
+  admin: '<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
 };
 
 const ROUTES = {
@@ -55,12 +61,18 @@ const ROUTES = {
   register: { label: 'Risk register', icon: 'register', load: () => import('./views/register.js'), when: () => can.staff },
   documents: { label: 'Documents', icon: 'documents', load: () => import('./views/documents.js') },
   reports: { label: 'Reports', icon: 'reports', load: () => import('./views/reports.js'), when: () => can.staff },
+  legal: { label: 'Legal register', icon: 'legal', load: () => import('./views/legal.js'), when: () => can.staff, group: 'Compliance' },
+  training: { label: 'Training', icon: 'training', load: () => import('./views/training.js') },
+  contractors: { label: 'Contractors', icon: 'contractors', load: () => import('./views/contractors.js'), when: () => can.staff },
+  equipment: { label: 'Equipment & PPE', icon: 'equipment', load: () => import('./views/equipment.js') },
+  emergency: { label: 'Emergency', icon: 'emergency', load: () => import('./views/emergency.js') },
   company: { label: 'Company', icon: 'company', load: () => import('./views/company.js'), group: 'Organisation' },
   sites: { label: 'Sites & departments', icon: 'sites', load: () => import('./views/sites.js') },
   people: { label: 'People', icon: 'people', load: () => import('./views/people.js'), when: () => can.staff },
   team: { label: 'Team & roles', icon: 'team', load: () => import('./views/team.js') },
   notifications: { label: 'Notifications', icon: 'bell', load: () => import('./views/notifications.js'), group: 'Account' },
   profile: { label: 'My profile', icon: 'profile', load: () => import('./views/profile.js') },
+  admin: { label: 'Platform admin', icon: 'admin', load: () => import('./views/admin.js'), when: () => state.isPlatformAdmin, group: 'iHubSA' },
 };
 
 export function navigate(route) { location.hash = `#/${route}`; }
@@ -95,6 +107,7 @@ async function boot() {
   });
 
   await loadMemberships();
+  state.isPlatformAdmin = await q(sb.rpc('is_platform_admin')).catch(() => false) === true;
 
   const pending = store.get(INVITE_KEY);
   if (pending) {
@@ -134,8 +147,9 @@ export async function selectOrg(orgId) {
   state.role = m.role;
   store.set(ORG_KEY, m.org_id);
   state.sub = await q(sb.from('organisation_subscriptions')
-    .select('status, trial_ends_at, billing_status, subscription_plans(name, max_users, max_sites)')
+    .select('status, trial_ends_at, billing_status, subscription_plans(name, code, max_users, max_sites, features)')
     .eq('org_id', m.org_id).maybeSingle()).catch(() => null);
+  state.features = state.sub?.subscription_plans?.features || {};
 }
 
 async function start() {

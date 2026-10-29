@@ -100,6 +100,8 @@ export function modalForm({ title, intro, fields, submitLabel = 'Save', danger =
         form.append(h('label', { class: 'switch-row', for: id }, input, h('span', {}, f.label, f.hint ? h('small', {}, f.hint) : null)));
         inputs[f.name] = { f, input };
         continue;
+      } else if (f.type === 'file') {
+        input = h('input', { id, name: f.name, type: 'file', accept: f.accept || '', capture: f.capture || null });
       } else if (f.type === 'checks') {
         const box = h('div', { class: 'checks', id, role: 'group', 'aria-label': f.label });
         const sel = new Set(f.value || []);
@@ -134,11 +136,12 @@ export function modalForm({ title, intro, fields, submitLabel = 'Save', danger =
         let v;
         if (f.type === 'checkbox') v = input.checked;
         else if (f.type === 'checks') v = [...input.querySelectorAll('input:checked')].map((i) => i.value);
+        else if (f.type === 'file') v = input.files?.[0] || null;
         else v = input.value.trim();
         values[name] = v;
         const field = input.closest('.field');
         let msg = '';
-        if (f.required && (v === '' || (Array.isArray(v) && !v.length))) msg = `${f.label} is required.`;
+        if (f.required && (v === '' || v === null || (Array.isArray(v) && !v.length))) msg = `${f.label} is required.`;
         else if (f.type === 'email' && v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) msg = 'Enter a valid email address.';
         else if (f.validate) msg = f.validate(v, values) || '';
         if (field) { field.classList.toggle('has-error', !!msg); field.querySelector('.error').textContent = msg; }

@@ -254,6 +254,105 @@ ok('report respects confidentiality', repD.incidents.total === 1, repD.incidents
 ok('employee cannot run report', (await asErr(C, `select public.ohs_report('${orgA}', current_date - 30, current_date)`)) !== null);
 ok('other company cannot run report', (await asErr(B, `select public.ohs_report('${orgA}', current_date - 30, current_date)`)) !== null);
 
+
+// ===== Stage 6: legal, training, contractors, equipment, emergency, platform (migration 14) =====
+const E='00000000-0000-0000-0000-00000000000e', P='00000000-0000-0000-0000-0000000000ff';
+await db.exec(`insert into auth.users(id,email) values ('${E}','e@a.co.za'),('${P}','p@ihub.co.za')`);
+await as(A, `insert into organisation_memberships(org_id,user_id,role) values ('${orgA}','${E}','ohs_manager')`);
+const empA = (await as(A, `insert into employees(org_id,first_name,last_name,job_title) values ('${orgA}','Thabo','Ndlovu','Rigger') returning id`))[0].id;
+
+// Plan gating: Professional has no legal/training/equipment/contractor documents
+ok('plan blocks training on Professional', (await asErr(A, `insert into training_courses(org_id,name) values ('${orgA}','First aid')`)) !== null);
+ok('plan blocks equipment on Professional', (await asErr(D, `insert into equipment(org_id,name) values ('${orgA}','Ladder')`)) !== null);
+ok('plan blocks company legal requirements', (await asErr(A, `insert into legal_requirements(org_id,reference,requirement,requirement_kind) values ('${orgA}','R1','x','company')`)) !== null);
+ok('emergency drills allowed on every plan', (await asErr(D, `insert into emergency_drills(org_id,reference,scheduled_for) values ('${orgA}','DRL-1',current_date + 3)`)) === null);
+await db.exec(`update organisation_subscriptions set plan_id = (select id from subscription_plans where code='business') where org_id='${orgA}'`);
+
+// Legal register verification
+const fw = (await db.query(`select id from legal_frameworks where code='OHSA-85-1993'`)).rows[0].id;
+const lr = (await as(E, `insert into legal_requirements(framework_id,org_id,reference,title,requirement,requirement_kind,verification_status) values ('${fw}','${orgA}','Section 8','General duties','Provide and maintain a safe workplace','legislation','verified') returning id, verification_status`))[0];
+ok('new requirement cannot start verified', lr.verification_status === 'unverified');
+ok('cannot set verified directly', (await asErr(A, `update legal_requirements set verification_status='verified' where id='${lr.id}'`))?.includes('Verify'));
+ok('creator cannot verify own requirement', (await asErr(E, `select public.verify_legal_requirement('${lr.id}','Checked gazette')`))?.includes('other than'));
+ok('safety officer cannot verify', (await asErr(D, `select public.verify_legal_requirement('${lr.id}','Checked')`)) !== null);
+ok('verification needs a note', (await asErr(A, `select public.verify_legal_requirement('${lr.id}','  ')`))?.includes('how you verified'));
+await as(A, `select public.verify_legal_requirement('${lr.id}','Checked against the Government Gazette text')`);
+let lrow = (await as(C, `select verification_status, verified_by, version from legal_requirements where id='${lr.id}'`))[0];
+ok('independent manager verifies', lrow.verification_status === 'verified' && lrow.verified_by === A && lrow.version === 1, JSON.stringify(lrow));
+await as(E, `update legal_requirements set requirement='Provide and maintain, as far as reasonably practicable, a safe workplace' where id='${lr.id}'`);
+lrow = (await as(A, `select verification_status, verified_by, version from legal_requirements where id='${lr.id}'`))[0];
+ok('editing wording resets verification and raises version', lrow.verification_status === 'unverified' && lrow.verified_by === null && lrow.version === 2, JSON.stringify(lrow));
+ok('B cannot see A company requirement', (await as(B, `select * from legal_requirements where id='${lr.id}'`)).length === 0);
+ok('only platform admins edit the shared library', (await asErr(A, `insert into legal_requirements(framework_id,reference,requirement,requirement_kind) values ('${fw}','Section 9','x','legislation')`)) !== null);
+await db.exec(`insert into platform_admins(user_id) values ('${P}')`);
+const plr = (await as(P, `insert into legal_requirements(framework_id,reference,requirement,requirement_kind) values ('${fw}','Section 13','Duty to inform','legislation') returning id`))[0].id;
+ok('platform admin cannot verify own library entry', (await asErr(P, `select public.verify_legal_requirement('${plr}','Gazette')`))?.includes('other than'));
+ok('customer cannot verify library entry', (await asErr(A, `select public.verify_legal_requirement('${plr}','Gazette')`))?.includes('platform administrators'));
+const ca = (await as(D, `insert into compliance_assessments(org_id,requirement_id,site_id,evaluation,review_date) values ('${orgA}','${lr.id}','${siteA}','partially_compliant',current_date + 5) returning id`))[0];
+ok('compliance assessment recorded', !!ca?.id);
+ok('one assessment per requirement per site', (await asErr(D, `insert into compliance_assessments(org_id,requirement_id,site_id) values ('${orgA}','${lr.id}','${siteA}')`)) !== null);
+ok('employee cannot see compliance register', (await as(C, `select * from compliance_assessments`)).length === 0);
+ok('action can come from legal compliance', (await asErr(D, `insert into corrective_actions(org_id,reference,source_type,source_id,title,due_date) values ('${orgA}','CA-L-1','legal_compliance','${ca.id}','Close compliance gap',current_date + 10)`)) === null);
+
+// Training
+const course = (await as(A, `insert into training_courses(org_id,name,kind,validity_months) values ('${orgA}','First aid level 1','certificate',36) returning id`))[0].id;
+const tr = (await as(D, `insert into training_records(org_id,course_id,employee_id,completed_on) values ('${orgA}','${course}','${empA}','2026-01-15') returning expires_on`))[0];
+ok('training expiry worked out from course validity', String(tr.expires_on).startsWith('2029-01-15') || new Date(tr.expires_on).toISOString().startsWith('2029-01-1'), String(tr.expires_on));
+const empB = (await as(B, `insert into employees(org_id,first_name,last_name) values ('${orgB}','Other','Person') returning id`))[0].id;
+ok("training record cannot point at another company's employee", (await asErr(D, `insert into training_records(org_id,course_id,employee_id,completed_on) values ('${orgA}','${course}','${empB}','2026-01-15')`)) !== null);
+ok('employee cannot add training records', (await asErr(C, `insert into training_records(org_id,course_id,employee_id,completed_on) values ('${orgA}','${course}','${empA}','2026-02-01')`)) !== null);
+
+// Contractors
+const k = (await as(D, `insert into contractors(org_id,company_name) values ('${orgA}','Cape Scaffolding') returning id`))[0].id;
+const kd = (await as(D, `insert into contractor_documents(org_id,contractor_id,doc_kind,storage_path,file_name,expires_on,review_status) values ('${orgA}','${k}','safety_file','${orgA}/contractors/x.pdf','safety-file.pdf',current_date + 20,'accepted') returning id, review_status`))[0];
+ok('uploaded documents start as pending', kd.review_status === 'pending');
+ok('safety officer cannot accept documents', (await asErr(D, `update contractor_documents set review_status='accepted' where id='${kd.id}'`))?.includes('Only administrators'));
+await as(A, `update contractor_documents set review_status='accepted' where id='${kd.id}'`);
+ok('manager accepts document and is recorded', (await as(A, `select reviewed_by from contractor_documents where id='${kd.id}'`))[0].reviewed_by === A);
+ok('access needs an induction', (await asErr(A, `update contractors set access_status='approved' where id='${k}'`))?.includes('induction'));
+await as(D, `update contractors set induction_completed_on = current_date where id='${k}'`);
+ok('safety officer cannot approve access', (await asErr(D, `update contractors set access_status='approved' where id='${k}'`))?.includes('Only administrators'));
+await as(E, `update contractors set access_status='approved', access_expires_on = current_date + 10 where id='${k}'`);
+ok('manager approves access and is recorded', (await as(A, `select access_approved_by from contractors where id='${k}'`))[0].access_approved_by === E);
+
+// Equipment
+const eq = (await as(D, `insert into equipment(org_id,name,category,inspection_interval_months) values ('${orgA}','Fire extinguisher FE-01','fire_equipment',12) returning id`))[0].id;
+ok('inspection needs a result', (await asErr(D, `insert into equipment_maintenance(org_id,equipment_id,kind,performed_on,description) values ('${orgA}','${eq}','inspection',current_date,'Annual service')`))?.includes('passed or failed'));
+await as(D, `insert into equipment_maintenance(org_id,equipment_id,kind,performed_on,description,outcome) values ('${orgA}','${eq}','inspection','2026-10-01','Annual service','pass')`);
+let eqr = (await as(A, `select next_inspection_due, status from equipment where id='${eq}'`))[0];
+ok('passed inspection sets next due date', String(eqr.next_inspection_due).includes('2027') || new Date(eqr.next_inspection_due).getFullYear() === 2027, String(eqr.next_inspection_due));
+await as(D, `insert into equipment_maintenance(org_id,equipment_id,kind,performed_on,description) values ('${orgA}','${eq}','defect',current_date,'Pressure gauge in red')`);
+ok('defect takes equipment out of service', (await as(A, `select status from equipment where id='${eq}'`))[0].status === 'out_of_service');
+ok('employee can see equipment but not log', (await as(C, `select * from equipment`)).length === 1 && (await asErr(C, `insert into equipment_maintenance(org_id,equipment_id,kind,performed_on,description) values ('${orgA}','${eq}','repair',current_date,'x')`)) !== null);
+await as(D, `insert into ppe_issues(org_id,employee_id,item,replace_by) values ('${orgA}','${empA}','Safety boots',current_date + 7)`);
+
+// Emergency
+await as(D, `insert into emergency_contacts(org_id,role,phone) values ('${orgA}','Fire department','10177')`);
+ok('employees see emergency contacts', (await as(C, `select * from emergency_contacts`)).length === 1);
+ok('employees cannot change emergency contacts', (await asErr(C, `insert into emergency_contacts(org_id,role,phone) values ('${orgA}','Fake','000')`)) !== null);
+ok('B cannot see A emergency contacts', (await as(B, `select * from emergency_contacts`)).length === 0);
+ok('completing a drill needs date and outcome', (await asErr(D, `update emergency_drills set status='completed' where reference='DRL-1'`))?.includes('outcome'));
+ok('drill cannot be completed in the future', (await asErr(D, `update emergency_drills set status='completed', held_on=current_date + 2, outcome='satisfactory' where reference='DRL-1'`))?.includes('future'));
+ok('drill completed', (await asErr(D, `update emergency_drills set status='completed', held_on=current_date, outcome='needs_improvement', evacuation_minutes=4.5, participants=22 where reference='DRL-1'`)) === null);
+await as(D, `insert into emergency_drills(org_id,reference,scheduled_for,coordinator_id) values ('${orgA}','DRL-2',current_date + 4,'${D}')`);
+
+// Platform administration
+ok('customers cannot list all organisations', (await asErr(A, `select * from public.platform_organisations()`)) !== null);
+const plat = await as(P, `select * from public.platform_organisations()`);
+ok('platform admin sees organisation overview', plat.length === 2 && plat.some((o) => o.plan_code === 'business'));
+ok('platform admin still cannot read customer records', (await as(P, `select * from incidents`)).length === 0 && (await as(P, `select * from employees`)).length === 0);
+ok('platform admin can change a plan', (await asErr(P, `update organisation_subscriptions set override_max_users = 80 where org_id='${orgB}'`)) === null);
+ok('customer cannot change own plan', (await as(A, `update organisation_subscriptions set override_max_users = 999 where org_id='${orgA}' returning id`)).length === 0);
+
+// Reminders cover the new modules
+await db.query(`select public.run_daily_reminders()`);
+const after1 = (await db.query(`select count(*)::int n from notifications where org_id='${orgA}'`)).rows[0].n;
+const ev = (await db.query(`select distinct event_type from notifications where org_id='${orgA}'`)).rows.map((r) => r.event_type);
+ok('reminders: contractor documents and access', ev.includes('contractor.document_expiring') && ev.includes('contractor.access_expiring'), ev.join());
+ok('reminders: PPE, compliance review, drill', ev.includes('ppe.replacement_due') && ev.includes('legal.review_due') && ev.includes('drill.upcoming'), ev.join());
+await db.query(`select public.run_daily_reminders()`);
+ok('reminders are not duplicated', (await db.query(`select count(*)::int n from notifications where org_id='${orgA}'`)).rows[0].n === after1);
+
 // Organisation deletion (e.g. POPIA erasure) must cascade cleanly
 ok('organisation can be deleted', (await db.query(`delete from organisations where id='${orgA}'`).then(()=>null).catch(e=>e.message)) === null);
 ok('org records removed', (await db.query(`select count(*)::int n from incidents where org_id='${orgA}'`)).rows[0].n === 0);

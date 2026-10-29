@@ -124,7 +124,38 @@ Platform administrators (iHubSA) manage plans, the legal library and platform se
    - **Reports:** monthly, quarterly, year-to-date or custom period, by site, calculated in the database from records the user may see. They cover incidents, inspections, corrective actions, risk and documents, with an optional AI executive summary written from the figures only. Reports export to print/PDF, Word and CSV, and can be saved as a controlled document.
    - **Word export** for any document.
    - **Phones and installing (v1.5.0):** a bottom tab bar on phones, pop-ups that slide up from the bottom, 16px form text so iPhones don't zoom, larger touch targets and room for the notch. The app can be installed from the **Install app** button: Chrome, Edge and Android use their own install prompt, and iPhone, iPad and Mac Safari users get step-by-step instructions. A "Report an incident" shortcut sits on the app icon. The version number shows in the menu and on My profile, and open copies offer an update when a new version is uploaded.
-6. **Additional modules:** legal register admin and verification workflow, training matrix, contractors, equipment and PPE, emergency preparedness, platform plan admin.
+6. **Additional modules:** done (v1.6.0, 29 Oct 2026). Migration 14 adds the database rules.
+   - **Plan entitlements are enforced by the database.** Legal, training, contractor documents and equipment/PPE are in the Business and Enterprise plans. Emergency preparedness and the basic contractor register are on every plan.
+   - **Legal register:**
+     - Requirements come from the shared iHubSA library or are the organisation's own.
+     - A requirement shows as **Verified** only after `verify_legal_requirement()`: a second competent person (not whoever captured it) confirms it against the official source and records how.
+     - Any change to the wording sends it back to "Needs verification" and raises the version.
+     - Compliance is assessed per site (compliant, partly, not compliant, not applicable), with evidence, findings, a responsible person and a review date. Corrective actions can be raised from gaps, and the register exports to CSV.
+   - **Training:**
+     - Courses have validity periods, and requirements are set by job title, department or everyone.
+     - Expiry dates are worked out by the database.
+     - Records can carry certificate uploads.
+     - The training matrix shows valid, expiring, expired and missing for each person, exports to CSV, and lets you click a cell to record training. Employees see "My training".
+   - **Contractors:**
+     - Contractors have their own register, with safety-file and document uploads and expiry dates.
+     - Documents can only be accepted or rejected by a manager, never by the uploader.
+     - Site access can only be approved by a manager, after an induction is recorded.
+     - The page also shows contractor training and corrective actions.
+   - **Equipment and PPE:**
+     - The equipment register has categories, inspection intervals and certificate expiry.
+     - Inspection, maintenance, defect and repair logs are kept per item. A passed inspection rolls the next due date forward, and a failed inspection or defect takes the item out of service.
+     - A PPE issue register records sizes, replacement dates and returns. Employees see their own PPE.
+   - **Emergency preparedness:**
+     - Emergency numbers per site, with tap-to-call on phones, visible to everyone. The national numbers can be added in one click.
+     - Drill planning and results: participants, evacuation time against target, everyone accounted for, outcome and observations. A completed drill must have a date and outcome.
+     - Last drill per site, flagged after a year.
+     - Links to emergency plans and emergency equipment.
+   - **Platform admin (iHubSA):**
+     - Organisation overview with plan, status, users, sites and AI use (metadata only, with no access to customers' safety records).
+     - Plan changes and custom limits; plan prices, limits and included modules.
+     - The shared legal library, with a two-person verification rule.
+     - The AI on/off switch and model.
+   - **Daily reminders** cover expiring training, contractor documents and access, equipment inspections and certificates, PPE replacement, compliance reviews and upcoming drills.
 7. **Testing and deployment:** end-to-end workflow tests, mobile checks, secret scan, final deployment guide.
 
 ## 8. Decisions needed
@@ -148,5 +179,7 @@ Platform administrators (iHubSA) manage plans, the legal library and platform se
 - The legal register is empty apart from the two Acts, so until requirements are loaded and verified, every AI legal reference will show "Needs verification".
 - The training, contractor, equipment and legal-register screens are Stage 6. Their database tables already exist.
 - The Stage 4 and 5 screens were tested end to end against a real Postgres with all migrations, not against the live project with real users. The workflow rules themselves were also checked on the live database.
+- The shared legal library holds only the two Acts as sources. Requirements must be captured and verified by two platform administrators before customers see them as verified. With one platform administrator (you), shared entries can be captured but not verified. Add a second competent person as platform administrator to verify them.
+- Emergency preparedness was designed from standard practice, because the original spec section wasn't available when it was built. Check it against the spec.
 - No real statutory reporting rules are seeded. They must be configured and verified before use.
 - Offline capture covers answers given while a connection drops. Answers are kept on the device and sent automatically when the connection returns. Photos still need a connection.

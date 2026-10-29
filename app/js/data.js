@@ -1,7 +1,7 @@
 // Shared data helpers for the OHS modules: people pickers, sites,
 // reference numbers, private file storage and common labels.
 import { sb, q } from './sb.js';
-import { h, badge } from './ui.js';
+import { h, badge, fmtDate } from './ui.js';
 
 const cache = new Map();
 const cached = (key, fn) => {
@@ -93,7 +93,8 @@ export function fileButton(label, onFiles, { capture = false, multiple = true } 
 export const PRIORITY = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' };
 export const ACTION_STATUS = { open: 'Open', in_progress: 'In progress', awaiting_verification: 'Awaiting verification', closed: 'Closed', cancelled: 'Cancelled' };
 export const ACTION_SOURCE = { risk_assessment: 'Risk assessment', risk_register: 'Risk register', inspection: 'Inspection', audit: 'Audit',
-  incident: 'Incident', legal_compliance: 'Legal compliance', management_review: 'Management review', other: 'Other' };
+  incident: 'Incident', legal_compliance: 'Legal compliance', management_review: 'Management review',
+  emergency_drill: 'Emergency drill', equipment: 'Equipment', contractor: 'Contractor', other: 'Other' };
 export const RECORD_STATUS = { draft: 'Draft', in_review: 'In review', approved: 'Approved', archived: 'Archived' };
 export const RA_TYPES = { baseline: 'Baseline', issue_based: 'Issue-based', task_specific: 'Task-specific', jsa: 'Job safety analysis', jha: 'Job hazard analysis' };
 export const CONTROL_LEVELS = { elimination: 'Elimination', substitution: 'Substitution', engineering: 'Engineering controls', administrative: 'Administrative controls', ppe: 'PPE' };
@@ -117,6 +118,12 @@ const KIND = {
   reported: 'warn', under_investigation: 'info', awaiting_approval: 'warn',
   scheduled: '', completed: 'ok', assigned: 'info', submitted: 'warn', returned: 'bad',
   low: '', medium: 'warn', high: 'bad', critical: 'bad',
+  verified: 'ok', unverified: 'warn', superseded: '',
+  compliant: 'ok', partially_compliant: 'warn', non_compliant: 'bad', not_assessed: '',
+  pending: 'warn', accepted: 'ok', rejected: 'bad', suspended: 'bad', expired: 'bad',
+  in_service: 'ok', out_of_service: 'bad', retired: '', planned: 'info',
+  satisfactory: 'ok', needs_improvement: 'warn', unsatisfactory: 'bad',
+  valid: 'ok', expiring: 'warn', missing: 'bad',
 };
 export const statusBadge = (value, labels) => badge(labels[value] || value, KIND[value] ?? '');
 
@@ -164,4 +171,48 @@ p{white-space:pre-wrap}</style></head><body>${node.outerHTML}</body></html>`;
 export function downloadCsv(filename, rows) {
   const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   downloadBlob(`${safeName(filename)}.csv`, 'text/csv;charset=utf-8', '﻿' + rows.map((r) => r.map(cell).join(',')).join('\r\n'));
+}
+
+// ---------------------------------------------------------------------
+// Stage 6 labels and helpers
+// ---------------------------------------------------------------------
+export const VERIFICATION = { unverified: 'Needs verification', verified: 'Verified', superseded: 'Superseded' };
+export const EVALUATION = { not_assessed: 'Not assessed', compliant: 'Compliant', partially_compliant: 'Partly compliant', non_compliant: 'Not compliant' };
+export const REQ_KIND = { legislation: 'Legislation', recommended_practice: 'Recommended practice', company: 'Company requirement' };
+export const COURSE_KIND = { induction: 'Induction', course: 'Course', certificate: 'Certificate', licence: 'Licence', refresher: 'Refresher' };
+export const ACCESS_STATUS = { pending: 'Pending', approved: 'Approved', suspended: 'Suspended', expired: 'Expired' };
+export const DOC_REVIEW = { pending: 'Awaiting review', accepted: 'Accepted', rejected: 'Rejected' };
+export const CONTRACTOR_DOCS = { safety_file: 'Safety file', letter_of_good_standing: 'Letter of good standing (COIDA)', public_liability: 'Public liability insurance',
+  risk_assessment: 'Risk assessment / method statement', appointment: 'Appointment letters', medical_fitness: 'Medical certificates of fitness',
+  competency: 'Competency certificates', tax_clearance: 'Tax compliance status', other: 'Other' };
+export const EQUIPMENT_STATUS = { in_service: 'In service', out_of_service: 'Out of service', retired: 'Retired' };
+export const EQUIPMENT_CATEGORY = { fire_equipment: 'Fire equipment', first_aid: 'First aid', emergency: 'Emergency equipment', lifting: 'Lifting equipment',
+  ladders_access: 'Ladders and access', electrical: 'Electrical', pressure: 'Pressure equipment', vehicles_mobile: 'Vehicles and mobile plant',
+  machinery: 'Machinery', hand_tools: 'Hand and power tools', other: 'Other' };
+export const LOG_KIND = { inspection: 'Inspection', maintenance: 'Maintenance', defect: 'Defect reported', repair: 'Repair' };
+export const DRILL_TYPE = { evacuation: 'Evacuation', fire: 'Fire', medical: 'Medical emergency', chemical_spill: 'Chemical spill', bomb_threat: 'Bomb threat',
+  shelter_in_place: 'Shelter in place', other: 'Other' };
+export const DRILL_STATUS = { planned: 'Planned', completed: 'Completed', cancelled: 'Cancelled' };
+export const DRILL_OUTCOME = { satisfactory: 'Satisfactory', needs_improvement: 'Needs improvement', unsatisfactory: 'Unsatisfactory' };
+export const EXPIRY = { valid: 'Valid', expiring: 'Expiring soon', expired: 'Expired', missing: 'Missing' };
+
+// valid / expiring (within `soon` days) / expired, for any expiry date
+export function expiryState(date, soon = 30) {
+  if (!date) return 'valid';
+  const t = today();
+  if (date < t) return 'expired';
+  return date <= addDays(t, soon) ? 'expiring' : 'valid';
+}
+export const expiryBadge = (date, soon = 30) => {
+  const st = expiryState(date, soon);
+  return date ? statusBadge(st, { valid: `Valid to ${fmtDate(date)}`, expiring: `Expires ${fmtDate(date)}`, expired: `Expired ${fmtDate(date)}` }) : h('span', { class: 'muted' }, 'No expiry');
+};
+
+// Plan entitlement check: shows an explanation instead of the module.
+export function planAllows(state, feature) { return !!state.features?.[feature]; }
+export function planNotice(view, title, what) {
+  view.append(h('div', { class: 'page-title' }, h('div', {}, h('h1', {}, title))),
+    h('div', { class: 'card plan-notice' }, h('h2', {}, `${title} isn't in your plan`),
+      h('p', {}, `${what} is included in the Business and Enterprise plans.`),
+      h('p', {}, 'Ask iHubSA to change your plan: ', h('a', { href: '../contact.html' }, 'contact us'), '.')));
 }

@@ -25,8 +25,10 @@ const db = (sql, p = []) => pool.query(sql, p).then((r) => r.rows);
   const site = (await db(`insert into sites(org_id,name) values ($1,'Main Road Project') returning id`, [org]))[0].id;
   await db(`insert into employees(org_id,first_name,last_name,site_id) values ($1,'Craig','Adams',$2)`, [org, site]);
   await db(`update platform_settings set value = jsonb_set(value, '{enabled}', 'true') where key = 'ai'`);
-  await db(`insert into legal_requirements (framework_id, org_id, reference, requirement, requirement_kind, verification_status)
-            select id, null, 'Section 8', 'General duties of employers to their employees', 'legislation', 'verified' from legal_frameworks where code = 'OHSA-85-1993'`);
+  // Seed a verified library entry the way verify_legal_requirement() does (direct "verified" inserts are refused since migration 14)
+  await pool.query(`begin; select set_config('ohs.verifying', 'on', true);
+    insert into legal_requirements (framework_id, org_id, reference, requirement, requirement_kind, verification_status)
+    select id, null, 'Section 8', 'General duties of employers to their employees', 'legislation', 'verified' from legal_frameworks where code = 'OHSA-85-1993'; commit;`);
 
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 1360, height: 900 }, serviceWorkers: 'block' });

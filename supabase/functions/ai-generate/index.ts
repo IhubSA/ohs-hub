@@ -11,7 +11,8 @@
 //   * the caller must be an admin, OHS manager or safety officer, the plan
 //     must include AI, and the monthly allowance must not be used up
 //     (ai_begin_job in the database)
-//   * output must match a JSON schema (forced tool call); missing sections
+//   * output must come back through the JSON-schema tool (anything else is
+//     rejected and not counted); missing sections
 //     are reported, never silently filled
 //   * legal references are only marked verified if they match the verified
 //     legal register; everything else is flagged "needs verification"
@@ -50,6 +51,10 @@ const SCHEMAS: Record<string, [string, string][]> = {
 };
 const GENERIC: [string, string][] = [['purpose', 'Purpose'], ['scope', 'Scope'], ['content', 'Content']];
 const LEVELS = ['elimination', 'substitution', 'engineering', 'administrative', 'ppe'];
+// Output length allowance per task. Generous, because an answer that is cut
+// off can't be used (it is rejected below and not counted).
+const MAX_TOKENS: Record<string, number> = { document_draft: 12000, document_section: 4000, hazard_suggestions: 8000,
+  checklist_questions: 8000, investigation_support: 5000, report_summary: 3000 };
 
 const SYSTEM = `You help competent occupational health and safety (OHS) practitioners in South Africa draft safety documentation.
 Rules you must follow:
@@ -104,8 +109,8 @@ function prompt(task: string, ctx: Record<string, unknown>, inputs: Record<strin
     const which = section ? `Rewrite ONLY the section "${labels.find(([k]) => k === section)?.[1]}". Keep it consistent with the other sections provided.` : 'Draft every section.';
     return `${company}\nDocument type: ${docType.replace(/_/g, ' ')}.\n${which}\nFor work instructions, put each step on its own numbered line.\nInformation provided by the user:\n${given || '- (none)'}`;
   }
-  if (task === 'hazard_suggestions') return `${company}\nSuggest the significant hazards for this work, with persons exposed, credible consequences, typical existing controls to check for, and additional controls following the hierarchy of controls. Do not rate them.\nInformation provided:\n${given}`;
-  if (task === 'checklist_questions') return `${company}\nCreate an inspection checklist grouped into sections. Each question must be phrased so that answering "compliant" means the condition is safe. Keep questions observable during a walk-through.\nInformation provided:\n${given}`;
+  if (task === 'hazard_suggestions') return `${company}\nSuggest the 8 to 15 most significant hazards for this work, with persons exposed, credible consequences, typical existing controls to check for, and additional controls following the hierarchy of controls. Keep each field to one or two short sentences. Do not rate them.\nInformation provided:\n${given}`;
+  if (task === 'checklist_questions') return `${company}\nCreate an inspection checklist grouped into sections. Each question must be phrased so that answering "compliant" means the condition is safe. Keep questions observable during a walk-through. Use no more than 40 questions in total.\nInformation provided:\n${given}`;
   if (task === 'investigation_support') return `${company}\nAn incident is being investigated. Suggest questions the investigator should ask, evidence to collect, and POSSIBLE immediate causes, underlying causes and contributing factors to explore. These are prompts, not conclusions.\nIncident information:\n${given}`;
   return `${company}\nWrite an executive summary for a management OHS report from these figures only. Do not invent numbers, do not infer causes from correlations, and mention when numbers are too small to show a trend.\nFigures (JSON):\n${JSON.stringify(inputs.stats)}`;
 }
@@ -156,13 +161,13 @@ Deno.serve(async (req) => {
       .then(({ error }) => { if (error) console.error('ai_finish_job failed', error.message); });
 
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 110_000);
+  const timer = setTimeout(() => ctrl.abort(), 140_000);
   let res: Response;
   try {
     res = await fetch(API, { method: 'POST', signal: ctrl.signal, headers: { 'x-api-key': KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model, max_tokens: task === 'document_draft' && !section ? 6000 : 3000, system: SYSTEM,
-        tools: [tool], tool_choice: { type: 'tool', name: tool.name },
-        messages: [{ role: 'user', content: prompt(task, { industry: org?.industry, province: org?.province, site }, inputs, docType, section) }] }) });
+      body: JSON.stringify({ model, max_tokens: MAX_TOKENS[task === 'document_draft' && section ? 'document_section' : task] ?? 4000, system: SYSTEM,
+        tools: [tool], tool_choice: { type: 'auto' },  // Sonnet 5.5 does not accept a forced tool; the instruction below plus the check after the call enforce it
+        messages: [{ role: 'user', content: `${prompt(task, { industry: org?.industry, province: org?.province, site }, inputs, docType, section)}\n\nReturn your answer ONLY by calling the ${tool.name} tool. Do not reply with plain text.` }] }) });
   } catch (e) {
     clearTimeout(timer);
     await finish(false, null, null, null, 0, 0, String(e));
@@ -176,9 +181,20 @@ Deno.serve(async (req) => {
   }
   const out = (data.content ?? []).find((c: any) => c.type === 'tool_use')?.input;
   const usage = data.usage ?? {};
+  if (data.stop_reason === 'max_tokens') {
+    await finish(false, null, null, null, usage.input_tokens, usage.output_tokens, 'Cut off at max_tokens');
+    return json(502, { error: 'The AI answer was too long and was cut off, so it was not used. Try again with a narrower description of the work.' });
+  }
   if (!out) {
     await finish(false, null, null, null, usage.input_tokens, usage.output_tokens, 'No structured output');
     return json(502, { error: 'The AI response was incomplete. Try again.' });
+  }
+  const empty = (task === 'hazard_suggestions' && !out.hazards?.length) || (task === 'checklist_questions' && !out.sections?.length)
+    || (task === 'investigation_support' && !out.questions?.length) || (task === 'report_summary' && !String(out.summary ?? '').trim())
+    || (task === 'document_draft' && !Object.values(out.sections ?? {}).some((v) => String(v ?? '').trim()));
+  if (empty) {
+    await finish(false, null, null, null, usage.input_tokens, usage.output_tokens, 'Empty result');
+    return json(502, { error: 'The AI did not return any suggestions. Add a little more detail about the work and try again.' });
   }
 
   // ---- validation ----
