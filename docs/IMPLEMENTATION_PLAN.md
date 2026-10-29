@@ -108,7 +108,14 @@ Platform administrators (iHubSA) manage plans, the legal library and platform se
 1. **Plan and schema:** done (this document and migrations 1–4).
 2. **Marketing website:** done. All pages, SEO, sitemap, the contact form and its Edge Function are built.
 3. **Auth and multi-tenancy:** done. The live Supabase project has migrations 1–10 applied (5–10 add hardening, performance, a scheduled email flush, a profile-email guard and a fix that lets organisations be deleted). The app includes a setup wizard, dashboard, company, sites and departments, people (employees and contractors), team and roles with email invitations, notifications and profile. Isolation was tested on the live project.
-4. **Core modules:** dashboard (real counts only), document control, SOP builder, risk assessments and register, inspections (mobile capture with an offline queue), incidents and investigations, corrective actions.
+4. **Core modules:** done (29 Oct 2026). Migration 11 adds database-enforced workflow rules. Built:
+   - **Dashboard:** live counts that open filtered lists, charts, period and site filters, and a "Your tasks" list.
+   - **Incidents:** reporting is open to every user. Each incident records the people involved, witnesses and photos, and has an investigation with a timeline, 5 Whys, causes and findings, and a summary. A manager who is not the investigator approves the investigation. External reporting is tracked, and an incident can't close until its investigation is approved.
+   - **Corrective actions:** one register with filters, evidence uploads, and verification by someone other than the responsible person.
+   - **Inspections:** nine starter checklists, a checklist builder with manager approval, recurring schedules, and phone capture with photos and an offline queue. Pass/fail counts are calculated by the database, completed inspections are locked, actions can be raised from findings, and each inspection ends with a close-out.
+   - **Risk assessments:** hazards are scored by the database, with the hierarchy of controls and independent approval. Approved assessments are locked until reopened.
+   - **Risk register:** filters, search and CSV export.
+   - **Document control:** a structured SOP editor (all the fields in spec 7.2) plus templates for method statements, toolbox talks, safety alerts, emergency plans and policies. Review and approval go through the database only, and the author can't approve their own document. The previous version stays effective while a revision is drafted. Also includes acknowledgements and printing.
 5. **AI and reporting:** `ai-generate` Edge Function, section regeneration, validation, monthly and quarterly reports, PDF/CSV export, AI summaries clearly labelled as such.
 6. **Additional modules:** legal register admin and verification workflow, training matrix, contractors, equipment and PPE, emergency preparedness, platform plan admin.
 7. **Testing and deployment:** end-to-end workflow tests, mobile checks, secret scan, final deployment guide.
@@ -128,7 +135,9 @@ Platform administrators (iHubSA) manage plans, the legal library and platform se
 
 ## 9. Known limitations (honest status)
 
-- The OHS modules (risk, inspections, incidents, actions, documents) aren't built yet. That's Stage 4.
-- The app was click-tested against an API stand-in. A live end-to-end run needs the dashboard steps in DEPLOYMENT.md to be completed first.
+- AI drafting isn't switched on yet (Stage 5). Documents are written by hand for now.
+- PDF export uses the browser's print dialog ("Save as PDF"). A formatted PDF and Word export is planned for Stage 5.
+- The training, contractor, equipment and legal-register screens are Stage 6. Their database tables already exist.
+- The Stage 4 screens were tested end to end against a real Postgres with all migrations, not against the live project with real users. The workflow rules themselves were also checked on the live database.
 - No real statutory reporting rules are seeded. They must be configured and verified before use.
-- Offline inspection capture is designed into the schema (with a `client_updated_at` conflict guard), but the client-side queue is a Stage 4 task.
+- Offline capture covers answers given while a connection drops. Answers are kept on the device and sent automatically when the connection returns. Photos still need a connection.

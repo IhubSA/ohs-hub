@@ -116,9 +116,9 @@ async function handle(route) {
   ok('site created', db.sites.length === 1 && db.sites[0].name === 'Main Road Project');
   ok('departments created, duplicates removed', db.departments.length === 2, JSON.stringify(db.departments.map((d) => d.name)));
   await p.waitForSelector('.stats');
-  ok('dashboard shows real counts', (await p.textContent('.stats')).includes('1Active sites') && (await p.textContent('.stats')).includes('2Departments'), await p.textContent('.stats'));
+  ok('dashboard shows real safety counts', (await p.textContent('.stats')).includes('0Open incidents') && (await p.textContent('.stats')).includes('0Outstanding actions'), await p.textContent('.stats'));
   ok('trial banner shown', await p.isVisible('text=free trial of Professional'));
-  ok('getting started checklist 2 of 5', (await p.textContent('.card-head')).includes('2 of 5'), await p.textContent('.card-head'));
+  ok('getting started checklist 2 of 7', (await p.textContent('.content')).includes('2 of 7 done'), await p.textContent('.content'));
   await shot('dashboard');
 
   // 2. Company

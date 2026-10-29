@@ -151,6 +151,74 @@ ok('B cannot read A files', (await as(B, `select * from storage.objects`)).lengt
 ok('audit log written', (await db.query(`select count(*)::int n from audit_logs where org_id='${orgA}'`)).rows[0].n > 5);
 ok('employee cannot read audit', (await as(C, `select * from audit_logs`)).length === 0);
 
+
+// ===== Stage 4 workflow guards (migration 11) =====
+const doc2 = (await as(D, `insert into documents(org_id,reference,title,doc_type) values ('${orgA}','SOP-002','Forklift SOP','sop') returning id`))[0].id;
+const ver2 = (await as(D, `insert into document_versions(document_id,org_id,version_number,content) values ('${doc2}','${orgA}',1,'{"purpose":"y"}') returning id`))[0].id;
+ok('cannot self-approve version by status edit', (await asErr(D, `update document_versions set status='approved' where id='${ver2}'`)) !== null);
+ok('cannot mark document approved directly', (await asErr(D, `update documents set status='approved' where id='${doc2}'`)) !== null);
+ok('cannot insert pre-approved document', (await asErr(D, `insert into documents(org_id,reference,title,doc_type,status) values ('${orgA}','SOP-X','Sneaky','sop','approved')`)) !== null);
+ok('author cannot be own reviewer', (await asErr(D, `select public.submit_document_version('${ver2}', array['${D}']::uuid[])`)) !== null);
+ok('employee cannot be reviewer', (await asErr(D, `select public.submit_document_version('${ver2}', array['${C}']::uuid[])`)) !== null);
+await as(D, `select public.submit_document_version('${ver2}', array['${A}']::uuid[])`);
+ok('submitted for review', (await as(D, `select status from document_versions where id='${ver2}'`))[0].status === 'in_review');
+const ap2 = (await as(A, `select id from document_approvals where version_id='${ver2}' and decision='pending'`))[0].id;
+ok('reject needs comment', (await asErr(A, `select public.decide_document_version('${ap2}','rejected','')`)) !== null);
+await as(A, `select public.decide_document_version('${ap2}','rejected','Add PPE section')`);
+ok('rejected back to draft', (await as(D, `select status from document_versions where id='${ver2}'`))[0].status === 'draft');
+await as(D, `update document_versions set content='{"purpose":"y","ppe":"boots"}' where id='${ver2}'`);
+await as(D, `select public.submit_document_version('${ver2}', array['${A}']::uuid[])`);
+const ap3 = (await as(A, `select id from document_approvals where version_id='${ver2}' and decision='pending'`))[0]?.id;
+ok('resubmission opens new review', !!ap3);
+await as(A, `select public.decide_document_version('${ap3}','approved','OK')`);
+ok('document approved via review', (await as(D, `select status from documents where id='${doc2}'`))[0].status === 'approved');
+const ver3 = (await as(D, `insert into document_versions(document_id,org_id,version_number,content) values ('${doc2}','${orgA}',2,'{"purpose":"y2"}') returning id`))[0].id;
+ok('revision draft keeps effective version', (await as(C, `select current_version_id from documents where id='${doc2}'`))[0].current_version_id === ver2);
+ok('employee cannot see revision draft', (await as(C, `select id from document_versions where id='${ver3}'`)).length === 0);
+
+// Risk assessment approval
+ok('safety officer cannot approve RA', (await asErr(D, `update risk_assessments set status='approved' where id='${ra}'`)) !== null);
+await as(A, `update risk_assessments set status='approved' where id='${ra}'`);
+ok('manager approves RA', (await as(A, `select approver_id from risk_assessments where id='${ra}'`))[0].approver_id === A);
+ok('approved RA hazards locked', (await asErr(D, `insert into risk_assessment_items(assessment_id,org_id,hazard,initial_likelihood,initial_severity) values ('${ra}','${orgA}','Noise',2,2)`)) !== null);
+await as(A, `update risk_assessments set status='draft' where id='${ra}'`);
+ok('reopened RA clears approval', (await as(A, `select approver_id from risk_assessments where id='${ra}'`))[0].approver_id === null);
+const ra2 = (await as(A, `insert into risk_assessments(org_id,reference,title,assessment_type,methodology_id) values ('${orgA}','RA-X','Office baseline','baseline','${meth}') returning id`))[0].id;
+ok('assessor cannot approve own RA', (await asErr(A, `update risk_assessments set status='approved' where id='${ra2}'`)) !== null);
+
+// Inspection templates and inspections
+const tpl = (await as(D, `insert into inspection_templates(org_id,title,category) values ('${orgA}','Workshop checklist','workshops') returning id`))[0].id;
+const ti1 = (await as(D, `insert into inspection_template_items(template_id,org_id,question,sort_order) values ('${tpl}','${orgA}','Guards fitted?',1) returning id`))[0].id;
+const ti2 = (await as(D, `insert into inspection_template_items(template_id,org_id,question,sort_order) values ('${tpl}','${orgA}','Floors clear?',2) returning id`))[0].id;
+ok('cannot inspect with draft checklist', (await asErr(D, `insert into inspections(org_id,reference,template_id,inspector_id) values ('${orgA}','INS-0','${tpl}','${D}')`)) !== null);
+ok('safety officer cannot approve checklist', (await asErr(D, `update inspection_templates set status='approved' where id='${tpl}'`)) !== null);
+await as(A, `update inspection_templates set status='approved' where id='${tpl}'`);
+ok('approved checklist locked', (await asErr(D, `insert into inspection_template_items(template_id,org_id,question) values ('${tpl}','${orgA}','Extra?')`)) !== null);
+const insp = (await as(D, `insert into inspections(org_id,reference,template_id,inspector_id,site_id,status) values ('${orgA}','INS-1','${tpl}','${D}','${siteA}','in_progress') returning id`))[0].id;
+await as(D, `insert into inspection_responses(inspection_id,org_id,template_item_id,question,response) values ('${insp}','${orgA}','${ti1}','Guards fitted?','compliant'),('${insp}','${orgA}','${ti2}','Floors clear?','non_compliant')`);
+const cnt = (await as(D, `select compliant_count, non_compliant_count from inspections where id='${insp}'`))[0];
+ok('database counts responses', cnt.compliant_count === 1 && cnt.non_compliant_count === 1, JSON.stringify(cnt));
+await as(D, `update inspections set status='completed', completed_at=now() where id='${insp}'`);
+ok('completed inspection locked', (await asErr(D, `update inspection_responses set response='compliant' where inspection_id='${insp}'`)) !== null);
+
+// Investigations
+const inv = (await as(D, `insert into incident_investigations(incident_id,org_id,investigator_id,status) values ('${inc}','${orgA}','${D}','assigned') returning id`))[0].id;
+ok('incident moves to under investigation', (await as(A, `select status from incidents where id='${inc}'`))[0].status === 'under_investigation');
+ok('cannot close with open investigation', (await asErr(A, `update incidents set status='closed' where id='${inc}'`)) !== null);
+await as(D, `update incident_investigations set status='submitted', summary='Wet floor from leaking urn' where id='${inv}'`);
+ok('incident awaiting approval', (await as(A, `select status from incidents where id='${inc}'`))[0].status === 'awaiting_approval');
+ok('manager told investigation submitted', (await db.query(`select count(*)::int n from notifications where user_id='${A}' and event_type='investigation.submitted'`)).rows[0].n === 1);
+ok('investigator cannot approve own', (await asErr(D, `update incident_investigations set status='approved' where id='${inv}'`)) !== null);
+await as(A, `update incident_investigations set status='approved' where id='${inv}'`);
+ok('safety officer cannot close incident', (await asErr(D, `update incidents set status='closed' where id='${inc}'`)) !== null);
+await as(A, `update incidents set status='closed' where id='${inc}'`);
+ok('manager closes incident', (await as(A, `select status, closed_at from incidents where id='${inc}'`))[0].closed_at !== null);
+
+// Action verification notification
+const act2 = (await as(D, `insert into corrective_actions(org_id,reference,source_type,title,responsible_id,due_date) values ('${orgA}','CA-2','inspection','Fix floor drain','${C}',current_date+5) returning id`))[0].id;
+await as(C, `update corrective_actions set status='awaiting_verification' where id='${act2}'`);
+ok('verifiers notified', (await db.query(`select count(*)::int n from notifications where user_id='${D}' and event_type='action.awaiting_verification' and record_id='${act2}'`)).rows[0].n === 1);
+
 // Organisation deletion (e.g. POPIA erasure) must cascade cleanly
 ok('organisation can be deleted', (await db.query(`delete from organisations where id='${orgA}'`).then(()=>null).catch(e=>e.message)) === null);
 ok('org records removed', (await db.query(`select count(*)::int n from incidents where org_id='${orgA}'`)).rows[0].n === 0);

@@ -150,7 +150,8 @@ export function modalForm({ title, intro, fields, submitLabel = 'Save', danger =
       submit.textContent = 'Saving…';
       try {
         const result = await onSubmit(values);
-        close(result ?? values);
+        // Functions that return nothing come back as null or an empty body: treat as success.
+        close(result === undefined || result === null || result === '' ? values : result);
       } catch (err) {
         status.hidden = false;
         status.textContent = errMsg(err);

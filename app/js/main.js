@@ -3,6 +3,7 @@
 import { sb, q } from './sb.js';
 import { h, icon, toast, errMsg, ROLE_LABELS, fmtDate } from './ui.js';
 import { renderSetup } from './views/setup.js';
+import { clearCache } from './data.js';
 
 const root = document.getElementById('root');
 const ORG_KEY = 'ohs_current_org';
@@ -33,15 +34,27 @@ const ICONS = {
   bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/>',
   profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  risk: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
+  register: '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+  inspections: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 2h6v4H9z"/><path d="m9 13 2 2 4-4"/>',
+  incidents: '<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>',
+  actions: '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
+  documents: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>',
 };
 
 const ROUTES = {
-  dashboard: { label: 'Dashboard', icon: 'dashboard', load: () => import('./views/dashboard.js') },
-  company: { label: 'Company', icon: 'company', load: () => import('./views/company.js') },
+  dashboard: { label: 'Dashboard', icon: 'dashboard', load: () => import('./views/dashboard.js'), group: 'Safety' },
+  incidents: { label: 'Incidents', icon: 'incidents', load: () => import('./views/incidents.js') },
+  actions: { label: 'Corrective actions', icon: 'actions', load: () => import('./views/actions.js') },
+  inspections: { label: 'Inspections', icon: 'inspections', load: () => import('./views/inspections.js'), when: () => can.staff },
+  risk: { label: 'Risk assessments', icon: 'risk', load: () => import('./views/risk.js'), when: () => can.staff },
+  register: { label: 'Risk register', icon: 'register', load: () => import('./views/register.js'), when: () => can.staff },
+  documents: { label: 'Documents', icon: 'documents', load: () => import('./views/documents.js') },
+  company: { label: 'Company', icon: 'company', load: () => import('./views/company.js'), group: 'Organisation' },
   sites: { label: 'Sites & departments', icon: 'sites', load: () => import('./views/sites.js') },
   people: { label: 'People', icon: 'people', load: () => import('./views/people.js'), when: () => can.staff },
   team: { label: 'Team & roles', icon: 'team', load: () => import('./views/team.js') },
-  notifications: { label: 'Notifications', icon: 'bell', load: () => import('./views/notifications.js') },
+  notifications: { label: 'Notifications', icon: 'bell', load: () => import('./views/notifications.js'), group: 'Account' },
   profile: { label: 'My profile', icon: 'profile', load: () => import('./views/profile.js') },
 };
 
@@ -136,11 +149,12 @@ function renderShell() {
   const nav = h('nav', { class: 'side-nav', 'aria-label': 'App' });
   for (const [key, r] of Object.entries(ROUTES)) {
     if (r.when && !r.when()) continue;
+    if (r.group) nav.append(h('div', { class: 'nav-label' }, r.group));
     nav.append(h('a', { href: `#/${key}`, dataset: { route: key } }, icon(ICONS[r.icon]), r.label));
   }
   const orgSwitch = state.memberships.length > 1
     ? h('select', { id: 'org-select', 'aria-label': 'Organisation', onchange: async (e) => {
-        await selectOrg(e.target.value); renderShell(); route();
+        clearCache(); await selectOrg(e.target.value); renderShell(); route();
         toast(`Switched to ${state.org.name}`);
       } }, state.memberships.map((m) => h('option', { value: m.org_id, selected: m.org_id === state.org.id }, m.organisations.name)))
     : h('div', { class: 'org-name' }, state.org.name);
@@ -188,7 +202,9 @@ export async function refreshBell() {
 }
 
 async function route() {
-  const [key, ...params] = (location.hash.replace(/^#\/?/, '') || 'dashboard').split('/');
+  const [path, qs] = (location.hash.replace(/^#\/?/, '') || 'dashboard').split('?');
+  const [key, ...params] = (path || 'dashboard').split('/');
+  const query = new URLSearchParams(qs || '');
   const r = ROUTES[key] && (!ROUTES[key].when || ROUTES[key].when()) ? ROUTES[key] : null;
   if (!r) { navigate('dashboard'); return; }
   els.sidebar.classList.remove('is-open');
@@ -197,10 +213,11 @@ async function route() {
   });
   document.title = `${r.label} | OHS Hub`;
   els.content.replaceChildren(h('p', { class: 'loading', role: 'status' }, 'Loading…'));
+  clearCache(); // lookups (people, sites) are cached only within one page view
   try {
     const mod = await r.load();
     const view = h('div');
-    await mod.render(view, { state, can, params, navigate, refreshBell, reload: route });
+    await mod.render(view, { state, can, params, query, navigate, refreshBell, reload: route });
     els.content.replaceChildren(view);
     els.content.focus({ preventScroll: true });
   } catch (e) {

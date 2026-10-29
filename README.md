@@ -11,7 +11,7 @@ Built by iHubSA on GitHub Pages, Supabase (Postgres, Auth, Storage, Edge Functio
 | `supabase/migrations/` | Database schema, security rules and reference data (run in order) |
 | `app/` | The signed-in OHS Hub application |
 | `supabase/functions/` | Edge Functions: `contact-submit`, `send-notifications`, `invite-user` |
-| `tests/` | App click-through test |
+| `tests/` | End-to-end and click-through tests (see `tests/README.md`) |
 | `supabase/tests/` | Automated tenant-isolation and workflow tests |
 | `docs/` | `IMPLEMENTATION_PLAN.md` (architecture, schema, roles, stages) and `DEPLOYMENT.md` |
 | `tools/build_site.py` | Regenerates the marketing pages from one shared header/footer |
@@ -21,7 +21,8 @@ Built by iHubSA on GitHub Pages, Supabase (Postgres, Auth, Storage, Edge Functio
 - **Stage 1 (plan and schema):** complete.
 - **Stage 2 (marketing website):** complete.
 - **Stage 3 (accounts, companies, sites, people, team and roles):** complete. The app is at `/app/` and connected to the live Supabase project.
-- **Stage 4 (core OHS modules):** next. See `docs/IMPLEMENTATION_PLAN.md`.
-- Tests: 54 database security checks, 20 live isolation checks and 26 app click-through checks, all passing.
+- **Stage 4 (core OHS modules):** complete. Dashboard, incidents and investigations, corrective actions, inspections (checklists, schedules, mobile capture), risk assessments, risk register and document control.
+- **Stage 5 (AI drafting and reports):** next. See `docs/IMPLEMENTATION_PLAN.md`.
+- Tests: 84 database security and workflow checks, 44 end-to-end checks against a real Postgres, 26 app click-through checks, all passing. See `tests/README.md`.
 
 No secrets are stored in this repository.
