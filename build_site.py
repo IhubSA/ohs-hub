@@ -95,11 +95,19 @@ FOOTER = f'''<footer class="site-footer">
   </div>
 </footer>'''
 
+# Cache-busting: each asset URL carries a short hash of its contents, so a
+# new upload is picked up straight away instead of an old cached copy.
+import hashlib as _hl, os as _os
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+def _v(rel):
+    try: return _hl.sha1(open(_os.path.join(_ROOT, rel), "rb").read()).hexdigest()[:8]
+    except OSError: return "1"
+
 def page(filename, title, description, body, current=None, scripts=("site.js",), extra_head="", page_id="", noindex=False):
     canonical = SITE_URL + ("" if filename == "index.html" else filename)
     full_title = title if filename == "index.html" else f"{title} | OHS Hub"
     robots = '<meta name="robots" content="noindex">' if noindex else ''
-    script_tags = "".join(f'<script type="module" src="assets/js/{s}"></script>' for s in scripts)
+    script_tags = "".join(f'<script type="module" src="assets/js/{s}?v={_v("assets/js/" + s)}"></script>' for s in scripts)
     return f'''<!doctype html>
 <html lang="en-ZA">
 <head>
@@ -123,7 +131,7 @@ def page(filename, title, description, body, current=None, scripts=("site.js",),
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/site.css">
+<link rel="stylesheet" href="assets/css/site.css?v={_v("assets/css/site.css")}">
 {extra_head}
 </head>
 <body data-page="{page_id}">
@@ -485,7 +493,7 @@ pricing = f'''
         <button type="button" data-billing="monthly" aria-pressed="true">Monthly</button>
         <button type="button" data-billing="annual" aria-pressed="false">Annually</button>
       </div>
-      <svg class="billing-arrow" viewBox="0 0 44 28" aria-hidden="true"><path d="M42 20C30 26 15 24 6 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M4 20 6 12l8 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg class="billing-arrow" viewBox="0 0 44 28" width="40" height="26" aria-hidden="true"><path d="M42 20C30 26 15 24 6 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M4 20 6 12l8 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <span class="annual-badge" id="annual-badge">Pay yearly, get <strong>2 months free</strong></span>
     </div>
   </div>
