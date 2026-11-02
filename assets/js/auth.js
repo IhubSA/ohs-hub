@@ -80,7 +80,14 @@ if (!isConfigured()) {
       document.querySelector('.auth-box h1 + .muted')?.remove();
     }
     const plan = new URLSearchParams(location.search).get('plan');
-    if (plan) reg.plan.value = plan;
+    const PLAN_NAMES = { free: 'Free', smme: 'SMME', business: 'Business', enterprise: 'Enterprise', principal_contractor: 'Principal Contractor' };
+    if (plan && PLAN_NAMES[plan]) {
+      reg.plan.value = plan;
+      const note = document.getElementById('plan-chosen');
+      if (note) note.textContent = plan === 'free'
+        ? 'You\'re starting on the Free plan: one user, no time limit. You can upgrade at any time.'
+        : `You're starting a 14-day free trial of ${PLAN_NAMES[plan]}. No card details needed.`;
+    }
     reg.addEventListener('submit', async (e) => {
       e.preventDefault();
       const ok = [
@@ -100,7 +107,7 @@ if (!isConfigured()) {
           emailRedirectTo: appUrl,
           // Company is created in the setup wizard on first sign-in, after the email is verified.
           data: { full_name: reg.full_name.value.trim(), company_name: reg.company_name.value.trim(),
-                  industry: reg.industry.value, requested_plan: reg.plan.value || 'professional' },
+                  industry: reg.industry.value, requested_plan: reg.plan.value || 'business' },
         },
       });
       busy(btn, false, 'Create account');
