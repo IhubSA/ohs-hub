@@ -32,6 +32,8 @@ ICONS = {
     "legal": icon('<path d="M20 5v30M10 35h20"/><path d="M8 11h24"/><path d="m8 11-5 11h10zM32 11l-5 11h10z"/><path d="M3 22a5 3 0 0 0 10 0M27 22a5 3 0 0 0 10 0"/>'),
     "docs": icon('<path d="M8 9h16v26H8z"/><path d="M13 9V5h19v26h-8"/><path d="M12 16h8M12 21h8M12 26h5"/>'),
     "action": icon('<circle cx="20" cy="20" r="14"/><path d="m13.5 20.5 4.5 4.5 9-10"/>'),
+    "equipment": icon('<path d="M24.5 9.5a7 7 0 0 0-9.4 9.4L5 29l6 6 10.1-10.1a7 7 0 0 0 9.4-9.4l-4.4 4.4-4.2-1.1-1.1-4.2z"/>'),
+    "emergency": icon('<circle cx="20" cy="20" r="15"/><path d="M20 12v16M12 20h16"/>'),
     "training": icon('<path d="M4 15 20 8l16 7-16 7z"/><path d="M10 18v8c0 2.5 4.5 5 10 5s10-2.5 10-5v-8"/><path d="M36 15v10"/>'),
     "contractor": icon('<path d="M8 25a12 12 0 0 1 24 0"/><path d="M5 25h30v4H5z"/><path d="M17 13V9h6v4"/><path d="M20 25v-8"/>'),
     "report": icon('<path d="M6 34h28"/><path d="M10 34V22h5v12M18 34V14h5v20M26 34V8h5v26"/>'),
@@ -135,7 +137,7 @@ def page(filename, title, description, body, current=None, scripts=("site.js",),
 </html>
 '''
 
-def cta(heading="Bring your safety records into one place.", text="Start a 14-day free trial. No card details needed."):
+def cta(heading="Bring your safety records into one place.", text="Start free, or try any paid plan free for 14 days. No card details needed."):
     return f'''<section class="section section--ink"><div class="wrap cta-band">
   <div><h2>{heading}</h2><p>{text}</p></div>
   <div class="btn-row"><a class="btn btn-primary" href="register.html">Start Free Trial</a>
@@ -166,8 +168,12 @@ FEATURES = [
      "Keep a training matrix, certificates and licences, with reminders before anything expires."),
     ("contractors", "contractor", "Contractor Management",
      "Register contractors, collect safety documents, record inductions and control site access."),
+    ("equipment", "equipment", "Equipment and PPE",
+     "An equipment register with inspection due dates and defect tracking, and a record of PPE issued to each person."),
+    ("emergency", "emergency", "Emergency Preparedness",
+     "Emergency numbers per site, tap-to-call on a phone, plus evacuation drill planning and results."),
     ("reporting", "report", "Safety Reporting and Analytics",
-     "Monthly and quarterly OHS reports built from your actual records, exportable to PDF and CSV."),
+     "Monthly and quarterly OHS reports built from your actual records, exportable to PDF, Word and CSV."),
 ]
 
 # =====================================================================
@@ -203,7 +209,7 @@ home = f'''
       <p class="lede">Manage your occupational health and safety processes in one intelligent platform. Generate safety documentation with AI, manage risk assessments, conduct inspections, investigate incidents and track corrective actions, all from one central system.</p>
       <div class="btn-row"><a class="btn btn-primary" href="register.html">Start Free Trial</a>
       <a class="btn btn-secondary" href="#features">Explore Features</a></div>
-      <p class="hero-note">14-day free trial. No card details needed. Built for South African workplaces.</p>
+      <p class="hero-note">Free plan for one user. 14-day free trial of any paid plan, no card details needed. Built for South African workplaces.</p>
     </div>
     <div class="matrix-card" aria-labelledby="rm-title">
       <h2 id="rm-title">Try the risk matrix</h2>
@@ -328,7 +334,7 @@ home = f'''
 <section class="section section--white" aria-labelledby="pr-title">
   <div class="wrap">
     <div class="section-head"><h2 id="pr-title">Plans that grow with your operation</h2>
-      <p>Start on a free trial of Professional. Commercial pricing is being finalised, so contact us for a quote.</p></div>
+      <p>Start free, or try any paid plan free for 14 days. Plans from R0 to R3,999 a month.</p></div>
     <div class="plans" id="plans"></div>
     <p style="margin-top:20px"><a href="pricing.html">Compare plans in detail</a></p>
   </div>
@@ -364,7 +370,7 @@ FEATURE_DETAIL = {
 <li>Comments, photo evidence and risk classification on findings</li>
 <li>Any non-compliant item can raise a corrective action</li>
 <li>Inspection reports, follow-up inspections and close-out verification</li>
-<li>Mobile-friendly capture, with offline capture and sync planned</li></ul>'''),
+<li>Mobile-friendly capture that keeps your answers if the signal drops and sends them when it returns</li></ul>'''),
  "incidents": ("A complete incident lifecycle", '''
 <p>Anyone in your organisation can report injuries, near misses, dangerous occurrences, property damage, occupational illnesses, environmental events and unsafe conditions, with photos and witnesses.</p>
 <ul><li>Investigator assignment, milestones and an evidence register</li><li>Witness statements and an event timeline</li>
@@ -374,12 +380,12 @@ FEATURE_DETAIL = {
 <p>AI can help structure evidence and suggest questions to ask. Its suggestions are labelled as unverified and are never recorded as an established cause.</p>
 <p><strong>Statutory reporting:</strong> configurable, versioned rules help you assess whether an event may need external notification, and track the responsible person, due date, submission and evidence. Rules must be verified by your organisation before they are relied on.</p>'''),
  "legal": ("A legal register you can trust", '''
-<p>Start with the Occupational Health and Safety Act 85 of 1993. The register is designed to add industry frameworks such as the Mine Health and Safety Act 29 of 1996 for mining customers.</p>
+<p>Start with the Occupational Health and Safety Act 85 of 1993, and add your own company requirements. Industry frameworks such as the Mine Health and Safety Act 29 of 1996 can be added for mining customers.</p>
 <ul><li>Legal reference, requirement and applicability</li><li>Applicable site or activity, and the responsible person</li>
 <li>Compliance evaluation with supporting evidence and findings</li><li>Corrective actions linked to each gap</li>
 <li>Assessment date, review date, source reference and version</li>
 <li>A clear distinction between legislation, recommended practice and company requirements</li></ul>
-<p>Requirements are added and verified through an administrative review process. OHS Hub helps you manage compliance; it doesn't guarantee it.</p>'''),
+<p>A requirement only shows as verified once a second competent person has checked it against the official source and recorded how. If anyone changes the wording, it goes back to "needs verification". OHS Hub helps you manage compliance; it doesn't guarantee it.</p>'''),
  "documents": ("Controlled documents", '''
 <ul><li>A document library with categories and reference numbers</li><li>Draft, in review, approved, obsolete and archived statuses</li>
 <li>Review and approval workflows, with independent approval enforced when your policy requires it</li>
@@ -392,23 +398,36 @@ FEATURE_DETAIL = {
 <li>Evidence attachments</li><li>Verification requirements and outcomes</li><li>Reminders before the due date and when overdue</li></ul>
 <p>An action that needs verification can't be closed until someone other than the responsible person has confirmed it worked.</p>'''),
  "training": ("Training and competency", '''
-<ul class="two-col"><li>Employee training matrix</li><li>Inductions and courses</li><li>Competency requirements by role</li>
-<li>Certificates and licences</li><li>Expiry dates and refresher reminders</li><li>Attendance records and acknowledgements</li></ul>'''),
+<ul class="two-col"><li>Training matrix: valid, expiring, expired or missing for every person</li><li>Inductions, courses, certificates and licences</li><li>Requirements by job title or department</li>
+<li>Certificate uploads</li><li>Expiry dates worked out from each course's validity</li><li>Reminders before training expires</li></ul>
+<p>Employees can see their own training records. Export the matrix to CSV.</p>'''),
  "contractors": ("Contractor management", '''
-<ul class="two-col"><li>Contractor registration and company details</li><li>Safety document submissions</li><li>Competency and training records</li>
-<li>Inductions and site access status</li><li>Contractor inspections</li><li>Contractor incidents and corrective actions</li></ul>'''),
+<ul class="two-col"><li>Contractor register and company details</li><li>Safety file and document uploads with expiry dates</li><li>Document review by a manager, never by the uploader</li>
+<li>Site induction records</li><li>Site access approved by a manager, only after induction</li><li>Contractor training records and corrective actions</li></ul>
+<p>Reminders go out before contractor documents or site access expire.</p>'''),
+ "equipment": ("Equipment and PPE", '''
+<ul class="two-col"><li>Equipment register by category, site and location</li><li>Inspection intervals and next-due dates</li><li>Inspection, maintenance, defect and repair history</li>
+<li>Certificate expiry for lifting and pressure equipment</li><li>Failed inspections and defects take an item out of service</li><li>PPE issued to each employee, with sizes and replacement dates</li></ul>
+<p>Reminders go out before inspections, certificates and PPE replacements fall due. Employees see the PPE issued to them.</p>'''),
+ "emergency": ("Emergency preparedness", '''
+<ul class="two-col"><li>Emergency numbers for each site, visible to everyone</li><li>Tap-to-call on a phone</li><li>Evacuation and emergency drill planning</li>
+<li>Drill results: attendance, evacuation time, outcome and observations</li><li>Last drill per site, flagged after a year</li><li>Links to emergency plans and emergency equipment</li></ul>
+<p>Corrective actions can be raised from any drill.</p>'''),
  "reporting": ("Reports from real records", '''
 <ul class="two-col"><li>Monthly and quarterly OHS reports</li><li>Incident statistics and near-miss trends</li><li>Inspection compliance</li>
-<li>Risk register summaries</li><li>Corrective action performance</li><li>Training and legal compliance</li>
-<li>Site comparisons</li><li>Management review reports</li></ul>
-<p>Filter by site, department, date range and incident category. Every report states its period and data scope. AI can write an executive summary of significant changes, but it never invents figures or presents a pattern as a proven cause. Export to PDF and CSV.</p>'''),
+<li>Risk register summaries</li><li>Corrective action performance</li><li>Document review status</li>
+<li>Incidents by site</li></ul>
+<p>Filter by site, department, date range and incident category. Every report states its period and data scope. AI can write an executive summary of significant changes, but it never invents figures or presents a pattern as a proven cause. Export to PDF, Word and CSV.</p>'''),
 }
-PHASED = {"training", "contractors"}
+# Lowest plan that includes each module (enforced in the database)
+PLAN_TAG = {"legal": "Enterprise plan and up", "contractors": "Enterprise plan and up",
+            "training": "Business plan and up", "equipment": "Business plan and up",
+            "reporting": "SMME plan and up", "emergency": "Every plan, including Free"}
 toc = "".join(f'<li><a href="#{fid}">{name}</a></li>' for fid, _, name, _ in FEATURES)
 details = []
 for fid, ic, name, short in FEATURES:
     sub, body = FEATURE_DETAIL[fid]
-    tag = '<span class="tag tag--phase">Later release</span>' if fid in PHASED else ''
+    tag = f'<span class="tag">{PLAN_TAG[fid]}</span>' if fid in PLAN_TAG else ''
     details.append(f'''<section class="detail" id="{fid}" aria-labelledby="{fid}-h">
   <aside>{ICONS[ic]}<h2 id="{fid}-h">{name}</h2>{tag}</aside>
   <div><h3>{sub}</h3>{body}</div>
@@ -416,7 +435,7 @@ for fid, ic, name, short in FEATURES:
 features = f'''
 <section class="page-head"><div class="wrap">
   <h1>Features built around real OHS workflows</h1>
-  <p class="lede">Ten connected modules, one record of truth. Modules marked "later release" are designed and will be switched on once they are fully built and tested.</p>
+  <p class="lede">Twelve connected modules, one record of truth. Every module listed here is available now. The core modules are in every plan, including Free; the label shows where a module needs a higher plan.</p>
 </div></section>
 <section class="section section--white" style="padding-top:32px"><div class="wrap">
   <ul class="toc" aria-label="Jump to a feature">{toc}</ul>
@@ -428,13 +447,13 @@ features = f'''
 # INDUSTRIES
 # =====================================================================
 IND_DETAIL = [
- ("Construction", "Available now", ["Task-specific risk assessments and method statements", "Site inspection checklists for scaffolding, excavations and housekeeping", "Contractor registration and site access (later release)", "Incident reporting from site, on a phone"]),
+ ("Construction", "Available now", ["Task-specific risk assessments and method statements", "Site inspection checklists for scaffolding, excavations and housekeeping", "Contractor registration, safety files and site access", "Incident reporting from site, on a phone"]),
  ("Mining", "Core modules now; mining modules planned", ["All core OHS modules: risk, inspections, incidents, actions and documents", "Legal register structure ready for Mine Health and Safety Act 29 of 1996 requirements", "Mining-specific modules and reporting are on the roadmap, not yet available"]),
- ("Manufacturing", "Available now", ["Machine and workshop inspections", "Equipment SOPs and lock-out procedures drafted with AI", "PPE issue records (later release)", "Incident trends by site and department"]),
- ("Engineering and maintenance", "Available now", ["Job safety analyses and job hazard analyses", "Equipment register with inspection schedules (later release)", "Corrective actions linked to defects"]),
+ ("Manufacturing", "Available now", ["Machine and workshop inspections", "Equipment SOPs and lock-out procedures drafted with AI", "PPE issue records with replacement dates", "Incident trends by site and department"]),
+ ("Engineering and maintenance", "Available now", ["Job safety analyses and job hazard analyses", "Equipment register with inspection due dates", "Corrective actions linked to defects"]),
  ("Logistics and warehousing", "Available now", ["Racking, forklift and housekeeping checklists", "Near-miss reporting from any employee", "Recurring inspection schedules per site"]),
- ("Transport", "Available now", ["Vehicle inspection checklists", "Driver licence and competency expiry tracking (later release)", "Incident investigation for road events"]),
- ("Facilities management", "Available now", ["Multi-site schedules and dashboards", "Fire safety and emergency plan documents", "Contractor management (later release)"]),
+ ("Transport", "Available now", ["Vehicle inspection checklists", "Driver licence and competency expiry tracking", "Incident investigation for road events"]),
+ ("Facilities management", "Available now", ["Multi-site schedules and dashboards", "Fire safety and emergency plan documents", "Contractor management and emergency drills"]),
  ("General commercial businesses", "Available now", ["A baseline risk assessment and emergency plan to start from", "Simple incident reporting for all staff", "Clear dashboards without enterprise complexity"]),
  ("OHS consultants", "Available now", ["Separate companies for each client, with isolated data", "One login across the companies you're invited to", "Consistent templates you can reuse per client"]),
 ]
@@ -455,19 +474,26 @@ industries = f'''
 pricing = f'''
 <section class="page-head"><div class="wrap">
   <h1>Pricing</h1>
-  <p class="lede">Every plan starts with a 14-day free trial of Professional. Commercial pricing is being finalised, so contact us for a quote for your team size.</p>
+  <p class="lede">Start free for one person, or try any paid plan free for 14 days. No card details needed.</p>
 </div></section>
 <section class="section section--white"><div class="wrap">
+  <div class="billing-toggle" id="billing-toggle" role="group" aria-label="Billing period">
+    <button type="button" data-billing="monthly" aria-pressed="true">Monthly</button>
+    <button type="button" data-billing="annual" aria-pressed="false">Annual (2 months free)</button>
+  </div>
   <div class="plans" id="plans"></div>
+  <p class="pricing-note" id="pricing-note"></p>
   <div class="faq" style="margin-top:56px">
     <h2>Pricing questions</h2>
-    <details><summary>Do I need a card to start the trial?</summary><div><p>No. You can start a 14-day trial without payment details. Online payment isn't switched on yet, so we'll contact you about billing before your trial ends.</p></div></details>
-    <details><summary>Are prices in rand and do they include VAT?</summary><div><p>All prices are quoted in South African rand (ZAR). Quotes state clearly whether VAT is included.</p></div></details>
-    <details><summary>What happens if we need more users or sites?</summary><div><p>You can move up a plan at any time. Enterprise customers get limits set to their needs.</p></div></details>
+    <details><summary>Do I need a card to start?</summary><div><p>No. The Free plan has no time limit, and paid plans start with a 14-day trial without payment details. Online payment isn't switched on yet, so we'll contact you about billing before your trial ends.</p></div></details>
+    <details><summary>What happens when the trial ends?</summary><div><p>If you haven't chosen a paid plan, your organisation moves to the Free plan. Your records are kept, and modules that aren't in the Free plan become read-only until you upgrade.</p></div></details>
+    <details><summary>Are prices in rand and do they include VAT?</summary><div><p>All prices are in South African rand (ZAR). The note under the plans says whether VAT is included.</p></div></details>
+    <details><summary>What happens if we need more users or sites?</summary><div><p>Paid plans can add extra users for the monthly amount shown on each plan, or you can move up a plan at any time. For more than 50 users, talk to us about custom limits.</p></div></details>
+    <details><summary>Can we pay annually?</summary><div><p>Yes. Annual billing costs the same as 10 months, so you get two months free.</p></div></details>
     <details><summary>What counts as an AI generation?</summary><div><p>Each draft or section regeneration requested from the AI counts as one generation. Your monthly allowance depends on your plan, and you can see your usage in your account.</p></div></details>
   </div>
 </div></section>
-{cta("Want a quote for your team?", "Tell us how many people and sites you have.")}'''
+{cta("Not sure which plan fits?", "Start free, or tell us how many people, sites and contractors you have and we'll recommend one.")}'''
 
 # =====================================================================
 # RESOURCES
@@ -568,7 +594,7 @@ FAQ = [
  ("Getting started", [
    ("What is OHS Hub?", "A web application that brings risk assessments, inspections, incidents, corrective actions, safety documents and compliance tracking into one system, with AI to help draft safety documentation."),
    ("Do I need to install anything?", "No. OHS Hub runs in a web browser on computers, tablets and phones."),
-   ("How long is the free trial?", "14 days on the Professional plan. No card details are needed to start."),
+   ("Is there a free plan?", "Yes. The Free plan is for one user and has no time limit. Paid plans start with a 14-day free trial, and no card details are needed."),
  ]),
  ("AI and compliance", [
    ("Will AI-generated documents make us compliant?", "No software can guarantee compliance. AI drafts are a starting point that a competent person must review, adjust and approve. OHS Hub records who reviewed and approved each document."),
@@ -708,8 +734,8 @@ signin = f'''<div class="auth">{auth_side}
 
 register = f'''<div class="auth">{auth_side}
 <div class="auth-main"><div class="auth-box">
-  <h1>Start your free trial</h1>
-  <p class="muted">14 days on Professional. No card details needed.</p>
+  <h1>Create your account</h1>
+  <p class="muted" id="plan-chosen">Start with a 14-day free trial of Business. No card details needed.</p>
   <div id="auth-status" class="alert" role="status" hidden></div>
   <form id="register-form" class="form" data-auth novalidate style="margin-top:16px">
     <div class="field"><label for="full_name">Full name</label><input id="full_name" name="full_name" autocomplete="name" required maxlength="120"><p class="error"></p></div>
@@ -718,7 +744,7 @@ register = f'''<div class="auth">{auth_side}
       <select id="industry" name="industry"><option value="general">General commercial</option><option value="construction">Construction</option><option value="mining">Mining</option><option value="manufacturing">Manufacturing</option><option value="engineering_maintenance">Engineering and maintenance</option><option value="logistics_warehousing">Logistics and warehousing</option><option value="transport">Transport</option><option value="facilities_management">Facilities management</option><option value="ohs_consultancy">OHS consultancy</option></select></div>
     <div class="field"><label for="email">Work email</label><input id="email" name="email" type="email" autocomplete="email" required><p class="error"></p></div>
     <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="new-password" required minlength="10"><p class="hint">At least 10 characters, including a letter and a number.</p><p class="error"></p></div>
-    <input type="hidden" name="plan" value="professional">
+    <input type="hidden" name="plan" value="business">
     <div class="check-field"><label class="check"><input type="checkbox" name="terms" required><span>I accept the <a href="terms.html">terms and conditions</a> and <a href="privacy.html">privacy policy</a>.</span></label><p class="error" style="margin-left:32px"></p></div>
     <button class="btn btn-primary btn-block" type="submit">Create account</button>
   </form>
@@ -745,7 +771,7 @@ PAGES = [
      "Manage risk assessments, inspections, incidents, corrective actions and safety documents in one platform, with AI-assisted drafting for South African workplaces.", home, {"extra_head": jsonld}),
     ("features.html", "Features", "AI SOP and risk assessment drafting, digital inspections, incident investigation, legal register, document control, corrective actions and OHS reporting.", features, {}),
     ("industries.html", "Industries", "OHS Hub for construction, mining, manufacturing, engineering, logistics, transport, facilities management, commercial businesses and OHS consultants.", industries, {}),
-    ("pricing.html", "Pricing", "OHS Hub plans for South African businesses: Starter, Professional, Business and Enterprise. Start with a 14-day free trial.", pricing, {}),
+    ("pricing.html", "Pricing", "OHS Hub plans for South African businesses: Free, SMME, Business, Enterprise and Principal Contractor. Start free or try any plan for 14 days.", pricing, {}),
     ("resources.html", "Resources", "Official South African OHS and data protection sources, and guidance on how OHS Hub's AI drafting and risk scoring work.", resources, {}),
     ("about.html", "About us", "OHS Hub is built by iHubSA in Fish Hoek, Western Cape, to bring South African safety records into one connected system.", about, {}),
     ("contact.html", "Contact us", "Contact the OHS Hub team for questions, walkthroughs, pricing or support.", contact, {}),
@@ -754,7 +780,7 @@ PAGES = [
     ("terms.html", "Terms and conditions", "Terms of use for the OHS Hub website and platform.", terms, {}),
     ("popia.html", "POPIA and data protection", "How OHS Hub helps you protect employee and incident information under POPIA.", popia, {}),
     ("signin.html", "Sign in", "Sign in to your OHS Hub workspace.", signin, {"scripts": ("site.js", "auth.js"), "page_id": "signin"}),
-    ("register.html", "Start your free trial", "Create an OHS Hub account and start a 14-day free trial.", register, {"scripts": ("site.js", "auth.js"), "page_id": "register"}),
+    ("register.html", "Create your account", "Create an OHS Hub account: start free, or try any paid plan free for 14 days.", register, {"scripts": ("site.js", "auth.js"), "page_id": "register"}),
     ("reset-password.html", "Reset password", "Choose a new password for your OHS Hub account.", reset, {"scripts": ("site.js", "auth.js"), "page_id": "reset", "noindex": True}),
     ("404.html", "Page not found", "This page could not be found.", notfound, {"noindex": True}),
 ]

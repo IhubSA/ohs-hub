@@ -52,7 +52,7 @@ ok('profile auto-created', (await db.query(`select full_name from user_profiles 
 const orgA = (await as(A, `select public.create_organisation('Alpha Construction','construction') id`))[0].id;
 const orgB = (await as(B, `select public.create_organisation('Beta Mining','mining') id`))[0].id;
 ok('orgs created', orgA && orgB);
-ok('trial subscription on professional', (await as(A, `select p.code from organisation_subscriptions s join subscription_plans p on p.id=s.plan_id where s.org_id='${orgA}'`))[0]?.code === 'professional');
+ok('new organisation gets a Business trial', (await as(A, `select p.code from organisation_subscriptions s join subscription_plans p on p.id=s.plan_id where s.org_id='${orgA}'`))[0]?.code === 'business');
 ok('default methodology', (await as(A, `select count(*)::int n from risk_methodologies where org_id='${orgA}'`))[0].n === 1);
 ok('notification rules seeded', (await as(A, `select count(*)::int n from notification_rules where org_id='${orgA}'`))[0].n === 12);
 
@@ -65,7 +65,7 @@ ok('B cannot see A sites', (await as(B, `select * from sites where org_id='${org
 ok('B cannot insert into A', (await asErr(B, `insert into sites(org_id,name) values ('${orgA}','Hack')`)) !== null);
 ok('B cannot see org A', (await as(B, `select * from organisations`)).length === 1);
 ok('anon cannot read organisations', (await asErr(null, `select * from organisations`)) !== null);
-ok('anon reads plans', (await as(null, `select code from subscription_plans`)).length === 4);
+ok('anon reads plans', (await as(null, `select code from subscription_plans order by sort_order`)).map((r) => r.code).join() === 'free,smme,business,enterprise,principal_contractor');
 ok('anon cannot call create_organisation', (await asErr(null, `select public.create_organisation('Hack')`)) !== null);
 ok('anon cannot call helper functions', (await asErr(null, `select public.is_member('${orgA}')`)) !== null);
 ok('anon cannot read contact enquiries', (await asErr(null, `select * from contact_enquiries`)) !== null);
@@ -230,7 +230,7 @@ const job = await begin(D);
 ok('safety officer starts AI job', /^[0-9a-f-]{36}$/.test(job), job);
 await db.query(`select public.ai_finish_job('${job}', true, '{"sections":{}}', '{}', '[]', 'anthropic', 'claude-sonnet-5-5', 100, 200, null)`);
 const quota = (await as(C, `select public.ai_quota('${orgA}') q`))[0].q;
-ok('quota counts successful draft', quota.used === 1 && quota.limit === 100 && quota.enabled === true && quota.can_generate === false, JSON.stringify(quota));
+ok('quota counts successful draft', quota.used === 1 && quota.limit === 20 && quota.enabled === true && quota.can_generate === false, JSON.stringify(quota));
 const job2 = await begin(D); await db.query(`select public.ai_finish_job('${job2}', false, null, null, null, 'anthropic', 'm', 0, 0, 'timeout')`);
 ok('failed draft not counted', (await as(A, `select public.ai_quota('${orgA}') q`))[0].q.used === 1);
 await db.exec(`update usage_counters set ai_generations = 100 where org_id='${orgA}'`);
@@ -262,11 +262,12 @@ await as(A, `insert into organisation_memberships(org_id,user_id,role) values ('
 const empA = (await as(A, `insert into employees(org_id,first_name,last_name,job_title) values ('${orgA}','Thabo','Ndlovu','Rigger') returning id`))[0].id;
 
 // Plan gating: Professional has no legal/training/equipment/contractor documents
-ok('plan blocks training on Professional', (await asErr(A, `insert into training_courses(org_id,name) values ('${orgA}','First aid')`)) !== null);
-ok('plan blocks equipment on Professional', (await asErr(D, `insert into equipment(org_id,name) values ('${orgA}','Ladder')`)) !== null);
+await db.exec(`update organisation_subscriptions set plan_id = (select id from subscription_plans where code='smme') where org_id='${orgA}'`);
+ok('plan blocks training on SMME', (await asErr(A, `insert into training_courses(org_id,name) values ('${orgA}','First aid')`)) !== null);
+ok('plan blocks equipment on SMME', (await asErr(D, `insert into equipment(org_id,name) values ('${orgA}','Ladder')`)) !== null);
 ok('plan blocks company legal requirements', (await asErr(A, `insert into legal_requirements(org_id,reference,requirement,requirement_kind) values ('${orgA}','R1','x','company')`)) !== null);
 ok('emergency drills allowed on every plan', (await asErr(D, `insert into emergency_drills(org_id,reference,scheduled_for) values ('${orgA}','DRL-1',current_date + 3)`)) === null);
-await db.exec(`update organisation_subscriptions set plan_id = (select id from subscription_plans where code='business') where org_id='${orgA}'`);
+await db.exec(`update organisation_subscriptions set plan_id = (select id from subscription_plans where code='enterprise') where org_id='${orgA}'`);
 
 // Legal register verification
 const fw = (await db.query(`select id from legal_frameworks where code='OHSA-85-1993'`)).rows[0].id;
@@ -339,7 +340,7 @@ await as(D, `insert into emergency_drills(org_id,reference,scheduled_for,coordin
 // Platform administration
 ok('customers cannot list all organisations', (await asErr(A, `select * from public.platform_organisations()`)) !== null);
 const plat = await as(P, `select * from public.platform_organisations()`);
-ok('platform admin sees organisation overview', plat.length === 2 && plat.some((o) => o.plan_code === 'business'));
+ok('platform admin sees organisation overview', plat.length === 2 && plat.some((o) => o.plan_code === 'enterprise'));
 ok('platform admin still cannot read customer records', (await as(P, `select * from incidents`)).length === 0 && (await as(P, `select * from employees`)).length === 0);
 ok('platform admin can change a plan', (await asErr(P, `update organisation_subscriptions set override_max_users = 80 where org_id='${orgB}'`)) === null);
 ok('customer cannot change own plan', (await as(A, `update organisation_subscriptions set override_max_users = 999 where org_id='${orgA}' returning id`)).length === 0);
@@ -352,6 +353,38 @@ ok('reminders: contractor documents and access', ev.includes('contractor.documen
 ok('reminders: PPE, compliance review, drill', ev.includes('ppe.replacement_due') && ev.includes('legal.review_due') && ev.includes('drill.upcoming'), ev.join());
 await db.query(`select public.run_daily_reminders()`);
 ok('reminders are not duplicated', (await db.query(`select count(*)::int n from notifications where org_id='${orgA}'`)).rows[0].n === after1);
+
+
+// ===== Plans (migration 15) =====
+const F1='00000000-0000-0000-0000-0000000000f1', F2='00000000-0000-0000-0000-0000000000f2';
+await db.exec(`insert into auth.users(id,email,raw_user_meta_data) values ('${F1}','f1@x.co.za','{"requested_plan":"free"}'),('${F2}','f2@x.co.za','{"requested_plan":"enterprise"}')`);
+const orgF = (await as(F1, `select public.create_organisation('Solo Safety') id`))[0].id;
+const subF = (await as(F1, `select p.code, s.status, s.trial_ends_at from organisation_subscriptions s join subscription_plans p on p.id=s.plan_id where s.org_id='${orgF}'`))[0];
+ok('choosing Free starts on Free with no trial', subF.code === 'free' && subF.status === 'active' && !subF.trial_ends_at, JSON.stringify(subF));
+const orgE = (await as(F2, `select public.create_organisation('Big Build') id`))[0].id;
+const subE = (await as(F2, `select p.code, s.status from organisation_subscriptions s join subscription_plans p on p.id=s.plan_id where s.org_id='${orgE}'`))[0];
+ok('choosing a paid plan starts a trial of that plan', subE.code === 'enterprise' && subE.status === 'trialing', JSON.stringify(subE));
+ok('Free plan has no independent approval (one user)', (await as(F1, `select public.org_requires_independent('${orgF}') r`))[0].r === false);
+ok('Free plan allows only one user', (await asErr(F1, `insert into organisation_memberships(org_id,user_id,role) values ('${orgF}','${C}','employee')`))?.includes('allows 1 user'));
+ok('Free plan has no reports', (await asErr(F1, `select public.ohs_report('${orgF}', current_date - 30, current_date)`))?.includes('not included'));
+ok('Free plan has no contractors', (await asErr(F1, `insert into contractors(org_id,company_name) values ('${orgF}','X')`)) !== null);
+ok('Free plan can use emergency, incidents and risk assessments', (await asErr(F1, `insert into emergency_contacts(org_id,role,phone) values ('${orgF}','Fire','10177')`)) === null);
+const use = (await as(F1, `select public.org_usage('${orgF}') u`))[0].u;
+ok('usage shows Free limits', use.users.limit === 1 && use.ai_generations.limit === 2 && use.storage_mb.limit === 100, JSON.stringify(use));
+ok('other companies cannot read usage', (await asErr(B, `select public.org_usage('${orgF}')`)) !== null);
+// Contractor limit on Enterprise (15)
+await db.exec(`update organisation_subscriptions set override_max_contractors = 2 where org_id='${orgE}'`);
+await as(F2, `insert into contractors(org_id,company_name) values ('${orgE}','One'),('${orgE}','Two')`);
+ok('contractor limit enforced', (await asErr(F2, `insert into contractors(org_id,company_name) values ('${orgE}','Three')`))?.includes('allows 2 contractor'));
+// Ended trials drop to Free
+await db.exec(`update organisation_subscriptions set trial_ends_at = now() - interval '1 day' where org_id='${orgE}'`);
+ok('expired trials are moved to Free', (await db.query(`select public.end_expired_trials() n`)).rows[0].n >= 1
+  && (await db.query(`select p.code, s.status from organisation_subscriptions s join subscription_plans p on p.id=s.plan_id where s.org_id='${orgE}'`)).rows[0].code === 'free');
+ok('admin told the trial ended', (await db.query(`select count(*)::int n from notifications where org_id='${orgE}' and event_type='subscription.trial_ended'`)).rows[0].n === 1);
+ok('customers cannot end trials', (await asErr(F2, `select public.end_expired_trials()`)) !== null);
+ok('pricing settings readable by visitors', (await as(null, `select value from platform_settings where key='pricing'`))[0]?.value?.vat === 'none');
+ok('AI settings stay private', (await as(null, `select * from platform_settings where key='ai'`)).length === 0);
+ok('customers cannot change pricing settings', (await as(A, `update platform_settings set value='{}' where key='pricing' returning key`)).length === 0);
 
 // Organisation deletion (e.g. POPIA erasure) must cascade cleanly
 ok('organisation can be deleted', (await db.query(`delete from organisations where id='${orgA}'`).then(()=>null).catch(e=>e.message)) === null);

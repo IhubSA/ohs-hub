@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Start your free trial | OHS Hub</title>
-<meta name="description" content="Create an OHS Hub account and start a 14-day free trial.">
+<title>Create your account | OHS Hub</title>
+<meta name="description" content="Create an OHS Hub account: start free, or try any paid plan free for 14 days.">
 
 <link rel="canonical" href="https://ihubsa.github.io/ohs-hub/register.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="OHS Hub">
-<meta property="og:title" content="Start your free trial | OHS Hub">
-<meta property="og:description" content="Create an OHS Hub account and start a 14-day free trial.">
+<meta property="og:title" content="Create your account | OHS Hub">
+<meta property="og:description" content="Create an OHS Hub account: start free, or try any paid plan free for 14 days.">
 <meta property="og:url" content="https://ihubsa.github.io/ohs-hub/register.html">
 <meta property="og:image" content="https://ihubsa.github.io/ohs-hub/assets/img/og-image.png">
 <meta property="og:locale" content="en_ZA">
@@ -44,8 +44,8 @@
   <li>AI first drafts, approved by your competent person</li><li>Each company's data kept separate and secure</li></ul>
 </div>
 <div class="auth-main"><div class="auth-box">
-  <h1>Start your free trial</h1>
-  <p class="muted">14 days on Professional. No card details needed.</p>
+  <h1>Create your account</h1>
+  <p class="muted" id="plan-chosen">Start with a 14-day free trial of Business. No card details needed.</p>
   <div id="auth-status" class="alert" role="status" hidden></div>
   <form id="register-form" class="form" data-auth novalidate style="margin-top:16px">
     <div class="field"><label for="full_name">Full name</label><input id="full_name" name="full_name" autocomplete="name" required maxlength="120"><p class="error"></p></div>
@@ -54,7 +54,7 @@
       <select id="industry" name="industry"><option value="general">General commercial</option><option value="construction">Construction</option><option value="mining">Mining</option><option value="manufacturing">Manufacturing</option><option value="engineering_maintenance">Engineering and maintenance</option><option value="logistics_warehousing">Logistics and warehousing</option><option value="transport">Transport</option><option value="facilities_management">Facilities management</option><option value="ohs_consultancy">OHS consultancy</option></select></div>
     <div class="field"><label for="email">Work email</label><input id="email" name="email" type="email" autocomplete="email" required><p class="error"></p></div>
     <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="new-password" required minlength="10"><p class="hint">At least 10 characters, including a letter and a number.</p><p class="error"></p></div>
-    <input type="hidden" name="plan" value="professional">
+    <input type="hidden" name="plan" value="business">
     <div class="check-field"><label class="check"><input type="checkbox" name="terms" required><span>I accept the <a href="terms.html">terms and conditions</a> and <a href="privacy.html">privacy policy</a>.</span></label><p class="error" style="margin-left:32px"></p></div>
     <button class="btn btn-primary btn-block" type="submit">Create account</button>
   </form>

@@ -146,8 +146,8 @@ async function handle(route) {
   await p.click('dialog button[type=submit]'); await p.waitForSelector('table.data');
   ok('employee added and listed', db.employees.length === 1 && (await p.textContent('table.data')).includes('Thandi Mokoena'));
   await p.fill('input[type=search]', 'zzz'); ok('employee search filters', (await p.textContent('table.data')).includes('No employees match'));
-  await p.click('button[role=tab]:has-text("Contractors")'); await p.waitForSelector('text=No contractors yet');
-  ok('contractors tab', true);
+  await p.click('button[role=tab]:has-text("Contractors")'); await p.waitForSelector('.content h1:has-text("Contractors")');
+  ok('contractors tab opens the Contractors page', (await p.evaluate(() => location.hash)) === '#/contractors');
   await shot('people');
 
   // 5. Team & invitations

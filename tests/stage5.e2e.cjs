@@ -95,7 +95,7 @@ const db = (sql, p = []) => pool.query(sql, p).then((r) => r.rows);
     await click('.page-title button:has-text("New document")');
     await modal({ doc_type: 'sop', title: 'Changing light fittings from a ladder' });
     await p.waitForSelector('#sec-purpose');
-    ok('AI usage shown', (await text()).includes('0 of 100 AI drafts used this month'), (await text()).slice(0, 300));
+    ok('AI usage shown', (await text()).includes('0 of 20 AI drafts used this month'), (await text()).slice(0, 300));
     await click('button:has-text("Draft with AI")');
     await modal({ task_description: 'Replacing fluorescent light fittings in the workshop using a step ladder', site_id: site, equipment: 'Step ladder, screwdrivers' });
     await p.waitForSelector('.ai-review', { timeout: 20000 });
