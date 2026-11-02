@@ -44,9 +44,17 @@
   <p class="lede">Start free for one person, or try any paid plan free for 14 days. No card details needed.</p>
 </div></section>
 <section class="section section--white"><div class="wrap">
-  <div class="billing-toggle" id="billing-toggle" role="group" aria-label="Billing period">
-    <button type="button" data-billing="monthly" aria-pressed="true">Monthly</button>
-    <button type="button" data-billing="annual" aria-pressed="false">Annual (2 months free)</button>
+  <div class="billing-intro">
+    <p class="trial-pill-lg">Every paid plan starts with a <strong>14-day free trial</strong>. No card needed to start.</p>
+    <p class="trial-note"><strong>Your records are always kept.</strong> Everything you set up during your trial (risk assessments, inspections, incidents and documents) stays on your account when you subscribe. If you don't choose a paid plan, you move to the Free plan and keep your records.</p>
+    <div class="billing-row">
+      <div class="billing-toggle" id="billing-toggle" role="group" aria-label="Billing period">
+        <button type="button" data-billing="monthly" aria-pressed="true">Monthly</button>
+        <button type="button" data-billing="annual" aria-pressed="false">Annually</button>
+      </div>
+      <svg class="billing-arrow" viewBox="0 0 44 28" aria-hidden="true"><path d="M42 20C30 26 15 24 6 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M4 20 6 12l8 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="annual-badge" id="annual-badge">Pay yearly, get <strong>2 months free</strong></span>
+    </div>
   </div>
   <div class="plans" id="plans"></div>
   <p class="pricing-note" id="pricing-note"></p>
